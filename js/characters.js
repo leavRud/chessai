@@ -12,8 +12,7 @@ const charState = {
 function openCharacterSetup() {
   // Персонажей ведёт нейросеть, а она доступна только после входа.
   if (!chatSignedIn) {
-    showToast(t('Войдите, чтобы играть против персонажей: ими управляет нейросеть'));
-    openAuthModal();
+    openAuthModal(t('Войдите, чтобы играть против персонажей: ими управляет нейросеть'));
     return;
   }
   hideModal('characterCardModal');

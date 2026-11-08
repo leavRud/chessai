@@ -16,6 +16,12 @@ function setThinkingUI(isThinking) {
   $id('thinkingIndicator').classList.toggle('hidden', !isThinking);
 }
 
+// Партию начали раньше, чем догрузился движок: вместо «Ход соперника» честно
+// пишем, чего ждём. Следующий updateStatus() вернёт обычный текст.
+function showEngineLoadingStatus() {
+  if (!isEngineReady && isEngineLoading) $id('statusText').textContent = t('Загружаю движок…');
+}
+
 async function requestAiMove() {
   if (!state.game || state.isGameOver || state.game.turn() !== state.aiColor) return;
   state.isThinking = true;
@@ -24,6 +30,7 @@ async function requestAiMove() {
 
   const fenForSearch = state.game.fen();
   const movetime = movetimeForSkill(state.skillLevel);
+  showEngineLoadingStatus();
   await waitForEngine(3000);
   const moveUci = await searchBestMove(fenForSearch, { movetime });
 
@@ -180,6 +187,7 @@ async function requestCharacterMove() {
 
   const fen = state.game.fen();
   const movetime = movetimeForSkill(state.skillLevel);
+  showEngineLoadingStatus();
   await waitForEngine(3000);
   const candidates = await searchTopMoves(fen, { movetime, multipv: 3 });
 

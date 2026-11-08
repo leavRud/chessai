@@ -42,12 +42,12 @@ function applyAccent(name) {
   const knightImg = $id('homeKnightImg');
   if (knightImg) {
     const knightSrcMap = {
-      gold: 'assests/knight.png',
-      maroon: 'assests/knight red.png',
-      blue: 'assests/knight blue.png',
-      green: 'assests/knight green.png',
+      gold: 'assests/knight.webp',
+      maroon: 'assests/knight-red.webp',
+      blue: 'assests/knight-blue.webp',
+      green: 'assests/knight-green.webp',
     };
-    knightImg.src = knightSrcMap[name] || 'assests/knight.png';
+    knightImg.src = knightSrcMap[name] || 'assests/knight.webp';
   }
 }
 

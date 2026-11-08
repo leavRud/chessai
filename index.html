@@ -49,7 +49,7 @@
     if (theme === 'dark') document.documentElement.classList.add('dark');
     var accent = localStorage.getItem('chessAccent') || 'gold';
     document.documentElement.setAttribute('data-accent', accent);
-    window.__homeKnightSrc = { gold: 'assests/knight.png', maroon: 'assests/knight red.png', blue: 'assests/knight blue.png', green: 'assests/knight green.png' }[accent] || 'assests/knight.png';
+    window.__homeKnightSrc = { gold: 'assests/knight.webp', maroon: 'assests/knight-red.webp', blue: 'assests/knight-blue.webp', green: 'assests/knight-green.webp' }[accent] || 'assests/knight.webp';
     var boardStyle = localStorage.getItem('chessBoardStyle') || 'classic';
     document.documentElement.setAttribute('data-board-style', boardStyle);
     if (localStorage.getItem('chessGlow') === '0') document.documentElement.classList.add('no-glow');
@@ -81,8 +81,9 @@
         <circle class="loading-ring-track" cx="70" cy="70" r="60"></circle>
         <circle class="loading-ring-progress" cx="70" cy="70" r="60"></circle>
       </svg>
-      <img id="loadingKnightImg" src="assests/knight.png" class="loading-knight" alt="">
-      <script>if (window.__homeKnightSrc) document.getElementById('loadingKnightImg').src = window.__homeKnightSrc;</script>
+      <!-- src ставит скрипт под цвет акцента: так браузер не качает лишнюю картинку -->
+      <img id="loadingKnightImg" class="loading-knight" alt="" width="512" height="341">
+      <script>document.getElementById('loadingKnightImg').src = window.__homeKnightSrc || 'assests/knight.webp';</script>
     </div>
 
     <div class="loading-logo">chessai</div>
@@ -114,8 +115,8 @@
     <div class="home-oval">
       <!-- Голова коня + иконка режима -->
       <div class="home-knight-wrap">
-        <img id="homeKnightImg" src="assests/knight.png" class="knight-head" alt="голова коня">
-        <script>if (window.__homeKnightSrc) document.getElementById('homeKnightImg').src = window.__homeKnightSrc;</script>
+        <img id="homeKnightImg" class="knight-head" alt="голова коня">
+        <script>document.getElementById('homeKnightImg').src = window.__homeKnightSrc || 'assests/knight.webp';</script>
       </div>
 
       <!-- Кнопка "Играть" -->
@@ -125,7 +126,7 @@
       <div class="home-mode-select" role="group" aria-label="Режим игры">
         <span id="homeModePill" class="home-mode-pill" aria-hidden="true"></span>
         <button type="button" class="home-mode-btn is-active" data-mode="ai" aria-pressed="true">Против стокфиша</button>
-        <button type="button" class="home-mode-btn" data-mode="friend" aria-pressed="false">На одном пк против друга</button>
+        <button type="button" class="home-mode-btn" data-mode="friend" aria-pressed="false">Против друга</button>
         <button type="button" class="home-mode-btn" data-mode="characters" aria-pressed="false">Против персонажей (Beta)</button>
       </div>
     </div>
@@ -879,7 +880,7 @@
           <div class="about-feature-grid">
             <div class="about-feature"><span class="about-feature-icon" data-icon="chess"></span><span>Против Stockfish</span></div>
             <div class="about-feature"><span class="about-feature-icon" data-icon="masks-theater"></span><span>Против персонажей</span></div>
-            <div class="about-feature"><span class="about-feature-icon" data-icon="users"></span><span>На одном ПК</span></div>
+            <div class="about-feature"><span class="about-feature-icon" data-icon="users"></span><span>Вдвоём на одном устройстве</span></div>
             <div class="about-feature"><span class="about-feature-icon" data-icon="search"></span><span>Анализ партий</span></div>
             <div class="about-feature"><span class="about-feature-icon" data-icon="chart-bar"></span><span>Статистика и Elo</span></div>
             <div class="about-feature"><span class="about-feature-icon" data-icon="trophy"></span><span>Достижения</span></div>
@@ -948,6 +949,8 @@
       <h2 id="authModalTitle">Вход в аккаунт</h2>
       <button id="authCloseBtn" class="settings-close-btn" type="button" aria-label="Закрыть">✕</button>
     </div>
+    <!-- Зачем просят войти (персонажи, покупка) — вместо всплывающего сообщения, которое закрывало низ окна -->
+    <p id="authReason" class="auth-reason hidden"></p>
 
     <div class="auth-tabs" role="tablist">
       <button id="authTabLogin" class="auth-tab is-active" type="button" role="tab" aria-selected="true">Вход</button>

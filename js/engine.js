@@ -6,9 +6,15 @@
    ========================================================================= */
 let stockfish = null;
 let isEngineReady = false;
+// Воркер создан, но ещё не ответил readyok: качается wasm (~7 МБ) или идёт
+// инициализация. Экран загрузки этого не ждёт — партию можно начать раньше.
+let isEngineLoading = false;
 let engineChain = Promise.resolve();
+// Сколько ждать первую загрузку движка, прежде чем считать, что он не поднимется
+const ENGINE_LOAD_TIMEOUT_MS = 60000;
 
 function initStockfish() {
+  isEngineLoading = true;
   try {
     stockfish = new Worker("stockfish/stockfish-18-lite-single.js");
     stockfish.onmessage = (e) => {
@@ -16,15 +22,15 @@ function initStockfish() {
       if (msg === "uciok") stockfish.postMessage("isready");
       if (msg === "readyok") {
         isEngineReady = true;
+        isEngineLoading = false;
         stockfish.postMessage(`setoption name Skill Level value ${state.skillLevel || 20}`);
-        markLoadingReady('engine');
       }
     };
-    stockfish.onerror = (e) => { console.error("Stockfish:", e); markLoadingReady('engine'); };
+    stockfish.onerror = (e) => { console.error("Stockfish:", e); isEngineLoading = false; };
     stockfish.postMessage("uci");
     stockfish.postMessage("setoption name Threads value 2");
     stockfish.postMessage("setoption name Hash value 64");
-  } catch (e) { console.error(e); markLoadingReady('engine'); }
+  } catch (e) { console.error(e); isEngineLoading = false; }
 }
 
 // Крайний случай: воркер Stockfish не ответил даже на 'stop' (реально завис
@@ -45,13 +51,16 @@ function restartStockfishEngine() {
   initStockfish();
 }
 
+// timeout — для уже загруженного движка (перезапуск, занятость). Пока движок
+// ещё качается, ждём дольше: иначе ход за соперника сделал бы pickFallbackMove.
 function waitForEngine(timeout = 4000) {
   return new Promise((resolve) => {
     if (isEngineReady) return resolve(true);
     const start = Date.now();
     const check = setInterval(() => {
+      const limit = isEngineLoading ? ENGINE_LOAD_TIMEOUT_MS : timeout;
       if (isEngineReady) { clearInterval(check); resolve(true); }
-      else if (Date.now() - start > timeout) { clearInterval(check); resolve(false); }
+      else if (Date.now() - start > limit) { clearInterval(check); resolve(false); }
     }, 200);
   });
 }

@@ -94,7 +94,7 @@ function initGame() {
     logSystemChat(t('Вы играете против персонажа «{name}» (≈{elo} Elo). Он ваш соперник за доской и не будет подсказывать вам ходы.', { name: state.character.name, elo: state.character.elo }));
     characterReact('Партия только начинается. Поприветствуйте соперника в своём образе.', true);
   } else {
-    $id('modeLabel').textContent = t('Игра вдвоём за одним ПК');
+    $id('modeLabel').textContent = t('Игра вдвоём на одном устройстве');
     $id('chatTitle').textContent = t('Диалог с нейросетью');
     $id('chatHint').textContent = t('Нейросеть отвечает только по запросу и не подсказывает сама');
     chatInputEl.placeholder = t('Спросите о позиции, ходе, угрозах, совете…');

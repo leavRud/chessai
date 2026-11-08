@@ -121,8 +121,7 @@ function selectBuyPack(packId) {
 async function openBuyModal(packId = buyPack) {
   if (!chatSignedIn) {
     try { sessionStorage.setItem('chessPendingBuy', packId || ''); } catch (e) { /* без хранилища просто не откроем после входа */ }
-    showToast(t('Войдите, чтобы купить вопросы: они зачисляются на аккаунт'));
-    openAuthModal();
+    openAuthModal(t('Войдите, чтобы купить вопросы: они зачисляются на аккаунт'));
     return;
   }
   const payBtn = $id('buyPayBtn');

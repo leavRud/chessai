@@ -286,6 +286,8 @@ textarea, input {
 }
 /* Фигура, которую тащат, живёт в body, вне #board */
 img.piece-417db { -webkit-user-drag: none; -webkit-touch-callout: none; }
+/* В светлой теме тень отделяет белые фигуры от светлых клеток */
+html:not(.dark) img.piece-417db { filter: drop-shadow(0 1px 1.5px rgba(40, 25, 15, 0.35)); }
 
 .board-b72b1 {
   border: none !important;
@@ -2495,6 +2497,7 @@ html.dark .achv-modal-overlay .achv-modal {
 }
 .auth-modal-header { margin-bottom: 4px; }
 .auth-modal-header h2 { font-size: 22px; }
+.auth-reason { margin: 6px 0 14px; font-size: 14px; line-height: 1.45; color: rgba(244, 239, 228, 0.8); }
 .auth-modal .modal-sub { margin: 6px 0 22px; text-align: left; }
 
 .auth-provider-col { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
@@ -3070,3 +3073,25 @@ html.dark .btn-primary.btn-primary-active { color: #1a1408; }
 .buy-legal a { color: inherit; }
 .buy-error { font-size: 13px; color: var(--danger); margin: 0 0 14px; }
 @media (max-width: 420px) { .buy-packs { grid-template-columns: 1fr; } }
+
+/* =========================================================================
+   Зоны нажатия на сенсорных экранах: не меньше 44px (рекомендация Apple/Google).
+   На десктопе с мышью размеры прежние, чтобы не раздувать вёрстку.
+   ========================================================================= */
+@media (pointer: coarse) {
+  .settings-icon-btn { width: 44px; height: 44px; }
+
+  /* Крестик остаётся 32px на вид, а нажимается по 44px */
+  .settings-close-btn { position: relative; }
+  .settings-close-btn::after { content: ''; position: absolute; inset: -6px; }
+
+  /* Кнопки режимов стоят вплотную: между ними и так видна «таблетка» */
+  .home-mode-select { gap: 0; }
+  .home-mode-btn { min-height: 44px; }
+
+  /* Ссылки подвала: отступ вокруг текста вместо промежутков между ссылками,
+     поэтому на вид расстояние то же, а нажимать можно по 44px в высоту */
+  .home-footer { padding-top: 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .home-footer-links { gap: 0; }
+  .home-footer a { display: inline-block; padding: 14px 7px; }
+}

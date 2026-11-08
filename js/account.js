@@ -58,7 +58,7 @@ function ensureEloHistory(acc) {
 
 // Обновляем рейтинг аккаунта после анализа партии (плавное скользящее среднее)
 async function updateAccountEloFromGame(playerElo) {
-  // «На одном ПК» (friend) не участвует в рейтинге: не начисляем и не пишем в историю.
+  // «Против друга» (friend) не участвует в рейтинге: не начисляем и не пишем в историю.
   if (state.mode === 'friend') return;
 
   const acc = getAccount();
@@ -120,7 +120,11 @@ function renderMenuProfile() {
    Вход — короткое самостоятельное действие, поэтому остаётся обычной
    модалкой (см. правило: модалки — только для коротких действий),
    а не view боковой панели. */
-function openAuthModal() {
+// reason — почему просим войти; показывается строкой под заголовком окна.
+function openAuthModal(reason = '') {
+  const reasonEl = $id('authReason');
+  reasonEl.textContent = reason;
+  reasonEl.classList.toggle('hidden', !reason);
   ['authLoginEmail', 'authLoginPassword', 'authRegisterName', 'authRegisterEmail', 'authRegisterPassword', 'authRegisterPassword2'].forEach((id) => {
     const el = $id(id);
     if (el) el.value = '';

@@ -1,15 +1,14 @@
-// Экран загрузки: прячется, когда готовы шрифты, страница и движок.
+// Экран загрузки: прячется, когда готовы шрифты и страница.
 'use strict';
 
 /* =========================================================================
    ЭКРАН ЗАГРУЗКИ
-   Скрывается только когда реально готовы: шрифты, полная загрузка окна
-   (скрипты/картинки/стили), движок Stockfish (получен readyok) и фон
-   загрузки (кони собрались в кольцо, см. js/loading-background.js). Есть
-   аварийный тайм-аут, чтобы не держать пользователя вечно, если Stockfish
-   не смог инициализироваться (например, воркеры не поддерживаются).
+   Скрывается, когда готовы шрифты, полная загрузка окна (скрипты/картинки/
+   стили) и фон загрузки (кони собрались в кольцо, см. js/loading-background.js).
+   Движок Stockfish (~7 МБ) не ждём: он догружается в фоне, а ход соперника
+   при необходимости подождёт его сам (см. waitForEngine в js/engine.js).
    ========================================================================= */
-const loadingReadyFlags = { fonts: false, engine: false, windowLoad: false, background: false };
+const loadingReadyFlags = { fonts: false, windowLoad: false, background: false };
 let loadingScreenHidden = false;
 
 function markLoadingReady(flag) {
@@ -47,7 +46,4 @@ function hideLoadingScreen() {
   }
 
   loadingBackgroundReady.then(() => markLoadingReady('background'));
-
-  // Аварийный предохранитель — не дольше 8 секунд ожидания движка
-  setTimeout(() => markLoadingReady('engine'), 8000);
 })();
