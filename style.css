@@ -3047,6 +3047,26 @@ html.dark .achv-modal-overlay .achv-modal {
   will-change: transform, opacity;
 }
 
+/* Самые ценные достижения (15 и 50) видны в своём цвете и до получения:
+   обводка, лёгкий отсвет фона и светящаяся иконка цвета уровня.
+   Секретные не трогаем — у них класс achv-tier-hidden. */
+.achv-grid-container .achv-card.is-locked:is(.achv-tier-15, .achv-tier-50) {
+  opacity: 0.85;
+  filter: none;
+  border-color: color-mix(in srgb, var(--achv-tier) 45%, transparent);
+  background: linear-gradient(160deg,
+    rgba(244, 239, 228, 0.04),
+    color-mix(in srgb, var(--achv-tier) 11%, transparent));
+  box-shadow: 0 0 22px -12px var(--achv-tier);
+}
+.achv-grid-container .achv-card.is-locked:is(.achv-tier-15, .achv-tier-50):hover { opacity: 1; }
+.achv-card.is-locked:is(.achv-tier-15, .achv-tier-50) .achv-card-icon {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--achv-tier) 60%, transparent));
+}
+.achv-card.is-locked:is(.achv-tier-15, .achv-tier-50) .achv-card-name {
+  color: color-mix(in srgb, var(--achv-tier) 55%, #F4EFE4);
+}
+
 /* =========================================================================
    АДАПТИВНОСТЬ — ДОПОЛНИТЕЛЬНЫЕ ИСПРАВЛЕНИЯ ДЛЯ ВСЕГО ПРИЛОЖЕНИЯ
    Идут последними в каскаде намеренно: панель ".panel-expanded" и сетка
