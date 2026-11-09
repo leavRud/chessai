@@ -9,9 +9,11 @@
 //       'game'     — служебные вызовы режима персонажей (у них отдельный потолок).
 // При ошибке у исключения есть поле code: AUTH_REQUIRED, DAILY_LIMIT_REACHED,
 // GAME_LIMIT_REACHED, PROVIDER_ERROR и т.п. (см. supabase/functions/chat-proxy).
-async function provodChat(messages, { temperature = 0.6, kind = 'question' } = {}) {
+// fast: true — быстрая модель (живой разговор с персонажем), сервер сам
+// откатится на основную, если быстрая не ответила.
+async function provodChat(messages, { temperature = 0.6, kind = 'question', fast = false } = {}) {
   const { data, error } = await sb.functions.invoke('chat-proxy', {
-    body: { model: PROVODAI_MODEL, messages, temperature, kind },
+    body: { model: PROVODAI_MODEL, messages, temperature, kind, fast },
   });
   if (error) {
     let code = null;

@@ -135,29 +135,54 @@ function describeCandidateMoves(fen, candidates) {
   }).filter(Boolean);
 }
 
-async function pickMoveByCharacterStyle(fen, candidates) {
+const traitK = (v) => clamp(Number(v) || 0, 0, 100) / 100;
+
+// Сила персонажа. Skill Level движка здесь не помогает: ходы персонажа берутся
+// из строк MultiPV (честные оценки), а не из bestmove, который Stockfish
+// намеренно портит на низком уровне. Поэтому слабость задаём сами:
+//  - tolerance — на сколько сантипешек хуже лучшего хода персонаж готов сыграть;
+//  - blunderChance — шанс «зевнуть»: на этом ходу коридор втрое шире;
+//  - multipv — слабым показываем больше вариантов, сильным только лучшие.
+// Осторожность сужает коридор и снижает шанс зевка, азарт — наоборот.
+function characterMovePolicy(c) {
+  const strength = clamp((Number(c.elo) - 500) / 2400, 0, 1); // 0 — новичок, 1 — гроссмейстер
+  const caution = traitK(c.caution);
+  const tolerance = (20 + (1 - strength) * 230) * (1.25 - 0.5 * caution); // 2900 → ~20, 1500 → ~115, 600 → ~240
+  const blunderChance = (1 - strength) ** 2 * 0.3 * (1.3 - 0.6 * caution); // 600 Elo → ~25%, 1500 → ~10%, 2400 → ~1%
+  const multipv = strength < 0.35 ? 5 : strength < 0.65 ? 4 : 3;
+  return { strength, caution, tolerance, blunderChance, multipv };
+}
+
+// Выбор хода по характеру — локально, без нейросети (раньше каждый такой
+// ход ждал ответа модели по несколько секунд). Из ходов в коридоре
+// tolerance берём тот, что ближе персонажу: агрессивные тянутся к взятиям и
+// шахам, любители жертв — к рискованным взятиям, осторожные — к рокировке и
+// к лучшему ходу движка. Чем слабее персонаж, тем меньше его волнует
+// потеря оценки и тем больше случайности; эмоциональность её усиливает.
+function pickCharacterMove(fen, candidates) {
   const c = state.character;
-  const described = describeCandidateMoves(fen, candidates);
-  if (described.length === 0) return null;
+  const policy = characterMovePolicy(c);
+  const topScore = candidates[0].score;
+  const width = policy.tolerance * (Math.random() < policy.blunderChance ? 3 : 1);
+  const pool = candidates.filter(cd => topScore - cd.score <= width);
+  if (pool.length <= 1) return candidates[0];
+  const described = describeCandidateMoves(fen, pool);
+  if (described.length === 0) return candidates[0];
 
-  const listText = described
-    .map(d => `${d.san} (оценка ${d.score}cp${d.tags.length ? ', ' + d.tags.join(', ') : ''})`)
-    .join('; ');
-
-  const prompt = `Персонаж: ${c.name}. Стиль игры: ${c.style}
-Черты характера (0-100): агрессивность ${c.aggression}, любовь к комбинациям ${c.combination}, любовь к жертвам ${c.sacrifice}, осторожность ${c.caution}, предпочтение эндшпиля ${c.endgame}, склонность к ничьим ${c.drawishness}.
-В текущей позиции есть несколько примерно равноценных по оценке движка ходов: ${listText}.
-Выбери ОДИН ход, который лучше всего соответствует характеру и стилю игры персонажа. Ответь СТРОГО одной нотацией хода (SAN) из списка выше, без пояснений и без знаков препинания вокруг.`;
-
-  try {
-    const raw = await provodChat([{ role: 'user', content: prompt }], { temperature: 0.7, kind: 'game' });
-    const clean = stripMarkdown(raw).trim().split(/\s+/)[0].replace(/[.,!?"']+$/g, '');
-    const found = described.find(d => d.san === clean) || described.find(d => clean && clean.includes(d.san));
-    if (found) return candidates.find(cd => cd.move === found.uci) || null;
-  } catch (error) {
-    console.error('Ошибка выбора хода по стилю персонажа:', error);
+  const lossWeight = (0.25 + 0.75 * policy.strength) * (0.6 + 0.8 * policy.caution);
+  const noise = 40 * (0.3 + traitK(c.emotionality)) * (1.6 - policy.strength);
+  let best = described[0];
+  let bestValue = -Infinity;
+  for (const d of described) {
+    let value = -(topScore - d.score) * lossWeight;
+    if (d.isCapture) value += 25 * traitK(c.aggression) + 20 * traitK(c.sacrifice);
+    if (d.tags.includes('шах')) value += 30 * traitK(c.aggression) + 15 * traitK(c.combination);
+    if (d.tags.includes('рокировка')) value += 25 * policy.caution;
+    if (d.isCapture && traitK(c.endgame) > 0.6) value += 10; // любители эндшпиля охотно меняются
+    value += (Math.random() - 0.5) * noise;
+    if (value > bestValue) { bestValue = value; best = d; }
   }
-  return null;
+  return pool.find(cd => cd.move === best.uci) || candidates[0];
 }
 
 function detectCharacterMoveFlavor(chosenScore, topScore, moveObj) {
@@ -189,27 +214,17 @@ async function requestCharacterMove() {
   const movetime = movetimeForSkill(state.skillLevel);
   showEngineLoadingStatus();
   await waitForEngine(3000);
-  const candidates = await searchTopMoves(fen, { movetime, multipv: 3 });
+  const { multipv } = characterMovePolicy(state.character);
+  const candidates = await searchTopMoves(fen, { movetime, multipv });
 
   let moveObj = null;
   let chosenScore = null;
   const topScore = candidates.length ? candidates[0].score : null;
 
-  if (candidates.length === 1) {
-    moveObj = applyUciMove(candidates[0].move);
-    chosenScore = candidates[0].score;
-  } else if (candidates.length > 1) {
-    const threshold = 60; // centipawns — ходы в этом коридоре считаются «примерно равноценными»
-    const close = candidates.filter(cd => topScore - cd.score <= threshold);
-    if (close.length <= 1) {
-      moveObj = applyUciMove(close[0] ? close[0].move : candidates[0].move);
-      chosenScore = close[0] ? close[0].score : candidates[0].score;
-    } else {
-      const picked = await pickMoveByCharacterStyle(fen, close);
-      const target = picked || close[0];
-      moveObj = applyUciMove(target.move);
-      chosenScore = target.score;
-    }
+  if (candidates.length) {
+    const target = pickCharacterMove(fen, candidates);
+    moveObj = applyUciMove(target.move);
+    chosenScore = target.score;
   }
 
   if (moveObj === null) {
@@ -228,10 +243,48 @@ async function requestCharacterMove() {
 }
 
 /* ---- Реакции персонажа на события партии ---- */
-function buildCharacterReactionPrompt() {
+// Один и тот же образ для чата с игроком и для реплик по ходу партии.
+// Персонаж всегда помнит, что прямо сейчас играет с игроком в шахматы.
+// На вопросы отвечает по-человечески и по существу (не сводит любой вопрос к
+// шахматам), а сам заговаривает только о партии — с опорой на разговор.
+function buildCharacterPersonaPrompt() {
   const c = state.character;
-  return `Ты — шахматный персонаж ${c.name} (${c.style}) внутри игрового приложения. Твой стиль: ${c.tone}. Отвечай кратко (1-2 предложения) 
-  в образе, ${AI_LANGUAGE}, с характером, без кавычек и разметки.`;
+  return `Ты — ${c.name}. ${c.shortDescription}
+Прямо сейчас ты играешь партию в шахматы против собеседника и переговариваешься с ним за доской. Ты живая личность со своим характером, юмором и настроением, а не бот.
+Как ты играешь: ${c.style}
+Как ты говоришь: ${c.tone}${c.persona ? `\nО тебе: ${c.persona}` : ''}
+
+Правила:
+- Ты всегда помнишь, что идёт партия: кто как сходил, как складывается игра, о чём вы уже говорили. Пометки [Фон: …] — это то, что происходит на доске, а не слова собеседника.
+- Когда собеседник что-то спрашивает или говорит, отвечай по существу и по-человечески, даже если это не о шахматах: не переводи каждую реплику в шахматы и не притягивай шахматные метафоры. Можно коротко вернуться к партии, если это к месту.
+- Когда говоришь сам, без вопроса собеседника, — говори о партии: о ходах, ситуации на доске, своих планах и настроении от игры. Опирайся на то, о чём вы уже говорили: подхвати шутку, напомни сказанное, ответь на старую подколку.
+- Говори как человек: ${AI_LANGUAGE}, от первого лица, 1–3 предложения, без списков, кавычек и разметки. Можно шутить, спорить, ворчать — в своём характере. Не будь услужливым ассистентом и не повторяй одни и те же фразы.
+- Ты соперник: не подсказывай собеседнику ходы и не оценивай позицию в его пользу. Если просят — откажи по-своему.`;
+}
+
+// Короткая сводка партии для пометок [Фон: …]: цвет, номер хода, последние
+// ходы и материал. Без FEN — модели нужен смысл, а не координаты.
+const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+function describeGameForCharacter() {
+  const game = state.game;
+  const history = game.history();
+  const myColor = state.aiColor === 'w' ? 'белыми' : 'чёрными';
+  const moveNo = Math.floor(history.length / 2) + 1;
+  const recent = history.slice(-4).join(' ');
+  let mine = 0;
+  let theirs = 0;
+  for (const row of game.board()) {
+    for (const sq of row) {
+      if (!sq) continue;
+      if (sq.color === state.aiColor) mine += PIECE_VALUES[sq.type];
+      else theirs += PIECE_VALUES[sq.type];
+    }
+  }
+  const diff = mine - theirs;
+  const material = diff === 0 ? 'материал равный'
+    : diff > 0 ? `у тебя больше материала на ${diff}` : `у собеседника больше материала на ${-diff}`;
+  const turn = game.turn() === state.aiColor ? 'сейчас твой ход' : 'сейчас ход собеседника';
+  return `ты играешь ${myColor}, ход ${moveNo}${recent ? `, последние ходы: ${recent}` : ', партия только началась'}, ${material}, ${turn}`;
 }
 
 const CHARACTER_REPLY_COOLDOWN_MS = 30000;
@@ -248,11 +301,13 @@ async function characterReact(context, isAuto = false) {
     state.pliesSinceCharacterSpoke = 0;
   }
   try {
+    // Последние реплики разговора — чтобы персонаж не забывал, о чём вы только что говорили.
     const messages = [
-      { role: 'system', content: buildCharacterReactionPrompt() },
-      { role: 'user', content: `Ситуация в партии: ${context}\nОтветь одной-двумя фразами в образе персонажа, ${AI_LANGUAGE}, без кавычек и разметки.` },
+      { role: 'system', content: buildCharacterPersonaPrompt() },
+      ...trimHistory(state.chatApiHistory, 10),
+      { role: 'user', content: `[Фон: ${describeGameForCharacter()}. ${context}]\nСкажи сам, без вопроса собеседника, одну-две фразы о партии в своём образе, учитывая ваш разговор.` },
     ];
-    const reply = await provodChat(messages, { temperature: 1.0, kind: 'game' });
+    const reply = await provodChat(messages, { temperature: 1.0, kind: 'game', fast: true });
     const clean = stripMarkdown(reply).replace(/^["«]+|["»]+$/g, '').trim();
     // Пока шёл запрос, игрок начал новую партию — реплика уже не к месту
     if (!clean || gameStartedAt !== state.gameStartedAt) return;
@@ -318,7 +373,7 @@ function triggerCharacterEvents(move, isUserMove) {
     character_gives_check: `Вы объявили сопернику шах ходом ${move.san}.`,
     player_gives_check: 'Соперник только что объявил вам шах.',
     player_captured_queen: 'Соперник только что взял вашего ферзя.',
-    quiet: `Партия идёт спокойно, вы только что сыграли ${move.san}. Скажите сопернику что-нибудь в своём образе: подколите, поделитесь мыслью или настроением.`,
+    quiet: `Партия идёт спокойно, вы только что сыграли ${move.san}. Скажи собеседнику что-нибудь о партии: как тебе игра, что задумал, подколи его за недавний ход или вспомни, о чём вы говорили.`,
   };
   if (event) {
     const context = contexts[event];
@@ -369,7 +424,7 @@ async function generateCharacterEndSummary(resultText, outcome) {
 {"mood":"настроение персонажа, одно слово из списка: ${Object.keys(CHARACTER_MOOD_ICONS).join(', ')}","favoriteMoment":"короткая фраза о любимом моменте партии, до 12 слов, ${AI_LANGUAGE}","comment":"комментарий персонажа о партии в его манере общения, 1-2 предложения, ${AI_LANGUAGE}"}`;
   const fallbackMood = outcome === 'character_win' ? 'calm' : (outcome === 'player_win' ? 'sad' : 'neutral');
   try {
-    const raw = await provodChat([{ role: 'user', content: prompt }], { temperature: 0.85, kind: 'game' });
+    const raw = await provodChat([{ role: 'user', content: prompt }], { temperature: 0.85, kind: 'game', fast: true });
     const parsed = JSON.parse(extractJson(raw));
     const mood = String(parsed.mood || '').trim().toLowerCase();
     renderCharacterResult({

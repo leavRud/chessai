@@ -1,0 +1,18 @@
+{
+  "id": "/",
+  "name": "chessai — шахматы против нейросети",
+  "short_name": "chessai",
+  "description": "Шахматы против Stockfish, вдвоём или против персонажей-нейросетей. ИИ-помощник объясняет ходы.",
+  "lang": "ru",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#141414",
+  "theme_color": "#141414",
+  "categories": ["games", "entertainment", "education"],
+  "icons": [
+    { "src": "assests/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assests/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assests/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

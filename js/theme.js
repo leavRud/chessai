@@ -56,21 +56,29 @@ const PIECE_SHAPES = {
     '<path d="M50 24 C40 24 30 26 30 34 Q30 43 36 52 H64 Q70 43 70 34 C70 26 60 24 50 24 Z"/>' +
     '<path class="d" d="M34 41 Q50 36 66 41"/><path d="M47 5 H53 V10 H58 V16 H53 V24 H47 V16 H42 V10 H47 Z"/>',
 };
-function buildPieceSvg(piece) {
-  const isWhite = piece[0] === 'w';
-  // Цвет стороны даёт заливка, читаемость на любой клетке — обводка:
-  // у белых тёмная, у чёрных яркая (иначе на тёмных клетках их не видно).
-  const fill = isWhite ? '#F6F1E6' : '#141210';
-  const stroke = isWhite ? '#5E2C2E' : '#E0B85C';
+// Цвет стороны даёт заливка, читаемость на любой клетке — обводка: у белых
+// тёмная, у чёрных светлая (иначе на тёмных клетках их не видно).
+// Обычные цвета приглушённые — слоновая кость и графит с латунью, чтобы
+// фигуры не «кричали» на доске. Резкие — только для контрастной доски
+// (для слабовидящих), там важнее различимость, чем мягкость.
+const PIECE_PALETTES = {
+  soft:   { w: { fill: '#ECE3D2', stroke: '#6E5646' }, b: { fill: '#2B2724', stroke: '#A68A5B' }, width: 2.6 },
+  strong: { w: { fill: '#F6F1E6', stroke: '#5E2C2E' }, b: { fill: '#141210', stroke: '#E0B85C' }, width: 3 },
+};
+function buildPieceSvg(piece, paletteName = 'soft') {
+  const palette = PIECE_PALETTES[paletteName];
+  const { fill, stroke } = palette[piece[0]];
   // viewBox чуть меньше квадрата 100×100: фигура крупнее в клетке
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 1 92 92">` +
     `<style>.d{fill:none;stroke-linecap:round}.e{fill:${stroke};stroke:none}</style>` +
-    `<g fill="${fill}" stroke="${stroke}" stroke-width="3" stroke-linejoin="round">` +
+    `<g fill="${fill}" stroke="${stroke}" stroke-width="${palette.width}" stroke-linejoin="round">` +
     PIECE_BASE + PIECE_SHAPES[piece[1]] + `</g></svg>`;
   return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
 }
 const PIECE_THEME_CACHE = {};
 function pieceThemeFn(piece) {
-  if (!PIECE_THEME_CACHE[piece]) PIECE_THEME_CACHE[piece] = buildPieceSvg(piece);
-  return PIECE_THEME_CACHE[piece];
+  const paletteName = document.documentElement.getAttribute('data-board-style') === 'contrast' ? 'strong' : 'soft';
+  const key = `${paletteName}:${piece}`;
+  if (!PIECE_THEME_CACHE[key]) PIECE_THEME_CACHE[key] = buildPieceSvg(piece, paletteName);
+  return PIECE_THEME_CACHE[key];
 }

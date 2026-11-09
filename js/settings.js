@@ -58,6 +58,8 @@ function applyBoardStyle(name) {
   document.querySelectorAll('#boardStyleRow .board-style-btn').forEach(el => {
     el.classList.toggle('is-active', el.dataset.boardStyle === name);
   });
+  // У контрастной доски свои, более резкие фигуры (pieceThemeFn) — перерисовываем
+  if (state.board && state.game) state.board.position(state.game.fen(), false);
 }
 
 function applyGlow(on) {

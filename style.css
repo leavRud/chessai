@@ -110,6 +110,26 @@ html.perf-low * { animation-duration: 0.001s !important; transition-duration: 0.
 
 * { box-sizing: border-box; }
 
+/* Без синей вспышки браузера при касании кнопок и ссылок на телефоне */
+* { -webkit-tap-highlight-color: transparent; }
+:focus:not(:focus-visible) { outline: none; }
+
+/* Это приложение, а не статья: долгое нажатие или двойной тап не должны
+   закрашивать синим кнопки, коня, фигуры и надписи и открывать меню
+   «Сохранить картинку». Выделять можно только то, что имеет смысл
+   скопировать: поля ввода и текст переписки в чате. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+img, svg { -webkit-user-drag: none; }
+input, textarea, [contenteditable="true"], .chat-log .msg {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
 html {
   min-height: 100%;
   background: var(--bg);

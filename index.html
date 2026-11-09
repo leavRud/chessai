@@ -10,7 +10,12 @@
 <link rel="canonical" href="https://chesai.ru/" />
 <link rel="icon" href="assests/icon-32.png" sizes="32x32" type="image/png" />
 <link rel="apple-touch-icon" href="assests/icon-180.png" />
+<link rel="manifest" href="manifest.webmanifest" />
 <meta name="theme-color" content="#141414" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="apple-mobile-web-app-title" content="chessai" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="chessai" />
 <meta property="og:locale" content="ru_RU" />
@@ -633,6 +638,18 @@
       <!-- ===================== VIEW: НАСТРОЙКИ ===================== -->
       <div id="view-settings" class="side-view">
 
+        <!-- Установка как приложения (js/pwa.js показывает, только когда это возможно) -->
+        <div id="installAppRow" class="settings-group hidden">
+          <div class="settings-group-title">Приложение</div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">chessai на телефоне и ПК</div>
+              <div id="installAppHint" class="settings-row-desc"></div>
+            </div>
+            <button id="installAppBtn" class="btn btn-accent btn-sm hidden" type="button">Установить</button>
+          </div>
+        </div>
+
         <!-- Внешний вид -->
         <div class="settings-group">
           <div class="settings-group-title">Внешний вид</div>
@@ -666,9 +683,9 @@
           <div class="settings-row column">
             <span class="settings-row-label">Оформление доски</span>
             <div id="boardStyleRow" class="board-style-row">
-              <button type="button" class="board-style-btn" data-board-style="classic">Классическое (дерево)</button>
-              <button type="button" class="board-style-btn" data-board-style="mono">Минималистичное (монохром)</button>
-              <button type="button" class="board-style-btn" data-board-style="contrast">Контрастное (для слабовидящих)</button>
+              <button type="button" class="board-style-btn" data-board-style="classic">Классическое</button>
+              <button type="button" class="board-style-btn" data-board-style="mono">Минималистичное</button>
+              <button type="button" class="board-style-btn" data-board-style="contrast">Контрастное</button>
             </div>
           </div>
 
@@ -1082,6 +1099,7 @@
 <script src="js/side-panel.js"></script>
 <script src="js/side-panel-views.js"></script>
 <script src="js/main.js"></script>
+<script src="js/pwa.js"></script>
 
 <!-- Toast-уведомление -->
 <div id="toast" class="toast hidden"></div>

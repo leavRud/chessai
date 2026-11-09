@@ -11,13 +11,7 @@ function buildChatSystemPrompt() {
     long: 'Можешь отвечать подробно — до 8–10 предложений, если это уместно.',
   };
   const lengthRule = lengthMap[state.settings.responseLength] || lengthMap.medium;
-  if (state.mode === 'characters' && state.character) {
-    const c = state.character;
-  return `Ты — ${c.name}, шахматный соперник. Твой стиль: ${c.style}. Манера: ${c.tone}.Тебе будут присылать позицию
-  и историю ходов. Отвечай ${AI_LANGUAGE} от первого лица, 
-  кратко (1-3 предложения). Никогда не давай подсказок по ходам, не анализируй позицию в пользу игрока. 
-  Если просят совета — откажи в характере. Без markdown.`;
-}
+  if (state.mode === 'characters' && state.character) return buildCharacterPersonaPrompt();
   return `Ты — шахматный ассистент внутри приложения. Общайся с игроком ${AI_LANGUAGE}. ${lengthRule}
 Тебе будут присылать текущую позицию в FEN, историю ходов (PGN), готовый анализ Stockfish (лучший ход, оценку, глубину, варианты) и вопрос игрока.
 Stockfish — единственный источник объективно лучшего хода и оценки позиции. Ты НЕ придумываешь и не подбираешь лучший ход самостоятельно: если в сообщении есть блок STOCKFISH, при вопросах «какой ход лучше» называй именно bestMove оттуда (или один из ALTERNATIVES) и объясняй его человеческим языком. Если блока STOCKFISH нет — прямо скажи, что анализ ещё не готов, вместо того чтобы гадать самому.
@@ -91,7 +85,15 @@ function formatStockfishContextBlock(fen, sf) {
   return block;
 }
 
+// Персонаж — собеседник за доской, а не шахматный справочник: ему уходят
+// слова игрока как есть плюс короткая сводка партии (describeGameForCharacter).
+// Без FEN и PGN — иначе модель видит в любой реплике «вопрос по позиции».
+function buildCharacterChatMessage(question) {
+  return `[Фон: ${describeGameForCharacter()}]\n${question}`;
+}
+
 async function buildChatContextMessage(question) {
+  if (state.mode === 'characters' && state.character) return buildCharacterChatMessage(question);
   const game = state.game;
   const fen = game.fen();
   const sideLabel = game.turn() === 'w' ? 'белые' : 'чёрные';
@@ -135,8 +137,6 @@ async function buildChatContextMessage(question) {
     const moves = game.moves();
     extra = `\nСписок допустимых ходов в этой позиции (SAN): ${moves.join(', ')}. 
 Игрок просит конкретный совет по ходу. Называй ход из блока STOCKFISH (Best move) или из ALTERNATIVES и объясни коротко, почему он хорош.`;
-  } else if (asksForMove && isCharacterMode) {
-    extra = `\nИгрок просит подсказать ход, совет или оценку позиции. Помни своё строгое правило: ты соперник, а не помощник — откажи в своей манере, не называя ходов и не оценивая позицию в его пользу.`;
   }
   return `CURRENT POSITION:
 FEN: ${fen}
@@ -236,8 +236,10 @@ async function handleAsk() {
       { role: 'system', content: buildChatSystemPrompt() },
       ...trimHistory(state.chatApiHistory)
     ];
-    const temperature = state.settings.temperature / 10;
-    const reply = await provodChat(messages, { temperature });
+    const isCharacterChat = state.mode === 'characters' && !!state.character;
+    // Персонажу нужна живость, а не точность ассистента: температура повыше и быстрая модель.
+    const temperature = isCharacterChat ? 0.95 : state.settings.temperature / 10;
+    const reply = await provodChat(messages, { temperature, fast: isCharacterChat });
     const cleanReply = stripMarkdown(reply);
     state.chatApiHistory.push({ role: 'assistant', content: reply });
     const isCharacterReply = state.mode === 'characters' && state.character;
