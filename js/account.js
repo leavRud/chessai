@@ -32,7 +32,19 @@ async function fetchProfileFromSupabase(userId) {
     .eq('id', userId)
     .single();
   if (error || !data) return null;
-  const acc = { name: data.name, avatar: data.avatar || '♟', elo: data.elo ?? 1200 };
+  const acc = { uid: userId, name: data.name, avatar: data.avatar || '♟', elo: data.elo ?? 1200 };
+  // История рейтинга живёт только в локальном кэше (в profiles её нет):
+  // не теряем её при каждой загрузке профиля, иначе график Elo обнуляется.
+  const prev = getAccount();
+  if (prev && (!prev.uid || prev.uid === userId) && Array.isArray(prev.eloHistory) && prev.eloHistory.length) {
+    acc.eloHistory = prev.eloHistory;
+    acc.lastEloGameKey = prev.lastEloGameKey;
+    const last = acc.eloHistory[acc.eloHistory.length - 1];
+    // Рейтинг изменился на другом устройстве — продолжаем график с него
+    if (last && last.elo !== acc.elo) {
+      acc.eloHistory.push({ n: last.n + 1, elo: acc.elo, delta: acc.elo - last.elo, ts: Date.now() });
+    }
+  }
   saveAccount(acc);
   return acc;
 }

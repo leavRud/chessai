@@ -1,4 +1,4 @@
-// Service worker: делает chessai устанавливаемым приложением и ускоряет
+// Service worker: делает chesai устанавливаемым приложением и ускоряет
 // повторные запуски. Регистрируется из js/pwa.js.
 //
 // Стратегии:
@@ -10,7 +10,7 @@
 // Запросы к Supabase и нейросети (другие домены, POST) не трогаем.
 'use strict';
 
-const CACHE = 'chessai-v1';
+const CACHE = 'chesai-v1';
 const SHELL = ['./', 'index.html', 'style.css', 'manifest.webmanifest', 'assests/icon-192.png'];
 
 self.addEventListener('install', (event) => {

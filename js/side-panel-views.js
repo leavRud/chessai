@@ -362,11 +362,46 @@ function initStatsView() {
 let feedbackModalInitialized = false;
 let feedbackSubmitting = false;
 let feedbackReturnFocusEl = null;
-const FEEDBACK_TYPES = ['bug', 'suggestion', 'question', 'other'];
+// Окно в два шага: сначала тема (плитки), потом короткая форма под неё.
+// Тема задаёт тип обращения в таблице feedback, подсказки в полях и то,
+// предлагать ли приложить ходы текущей партии.
+const FEEDBACK_TOPICS = {
+  bug: {
+    type: 'bug', icon: 'bug', title: 'Что-то сломалось', label: 'Что случилось?',
+    placeholder: 'Что вы делали и что пошло не так? Например: после рокировки доска перестала отвечать', attach: true,
+  },
+  suggestion: {
+    type: 'suggestion', icon: 'bulb', title: 'Есть идея', label: 'Ваша идея',
+    placeholder: 'Что бы вы добавили или поменяли?', attach: false,
+  },
+  characters: {
+    type: 'other', icon: 'chess-knight', title: 'Персонажи', label: 'Что было не так?',
+    placeholder: 'Какой персонаж и что он сказал или сыграл странного?', attach: true,
+  },
+  question: {
+    type: 'question', icon: 'bubble', title: 'Вопрос или другое', label: 'Сообщение',
+    placeholder: 'Напишите, что хотите спросить или рассказать', attach: false,
+  },
+};
+let feedbackTopic = null;
 
-// Только неигровые/нечувствительные данные — без FEN, истории партии или чата.
+function hasGameToAttach() {
+  return !!(state.game && state.game.history().length);
+}
+
+// Технические данные без личной информации. Ходы партии — только если
+// игрок сам оставил галочку «Приложить ходы»; переписка в чате не уходит никогда.
 function collectFeedbackMetadata() {
+  const attach = feedbackTopic && FEEDBACK_TOPICS[feedbackTopic].attach && hasGameToAttach() && $id('feedbackAttachGame').checked;
   return {
+    topic: feedbackTopic,
+    game: attach ? {
+      pgn: state.game.pgn(),
+      mode: state.mode || null,
+      playerColor: state.playerColor,
+      skillLevel: state.mode === 'ai' ? state.skillLevel : null,
+      character: state.mode === 'characters' && state.character ? { name: state.character.name, elo: state.character.elo } : null,
+    } : null,
     theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
     language: uiLang,
     accent: state.settings.accent,
@@ -412,12 +447,38 @@ function resetFeedbackForm() {
   setFeedbackLoading(false);
 }
 
+// Шаг 1 — выбор темы
+function showFeedbackTopics() {
+  feedbackTopic = null;
+  clearFeedbackErrors();
+  $id('feedbackForm').classList.add('hidden');
+  $id('feedbackTopicStep').classList.remove('hidden');
+  const first = document.querySelector('#feedbackTopicStep .feedback-topic');
+  if (first) first.focus();
+}
+
+// Шаг 2 — форма под выбранную тему. Уже набранный текст не стираем:
+// игрок мог вернуться назад, только чтобы поменять тему.
+function chooseFeedbackTopic(key) {
+  const topic = FEEDBACK_TOPICS[key];
+  if (!topic) return;
+  feedbackTopic = key;
+  clearFeedbackErrors();
+  $id('feedbackTopicChip').innerHTML = `${achievementIconSvg(topic.icon)}<span>${escapeHtml(t(topic.title))}</span>`;
+  $id('feedbackTopicChip').dataset.topic = key;
+  $id('feedbackMessageLabel').textContent = t(topic.label);
+  $id('feedbackMessage').setAttribute('placeholder', t(topic.placeholder));
+  $id('feedbackAttachRow').classList.toggle('hidden', !(topic.attach && hasGameToAttach()));
+  $id('feedbackTopicStep').classList.add('hidden');
+  $id('feedbackForm').classList.remove('hidden');
+  $id('feedbackMessage').focus();
+}
+
 function openFeedbackModal() {
   feedbackReturnFocusEl = document.activeElement;
   resetFeedbackForm();
   showModal('feedbackModal');
-  const typeSelect = $id('feedbackType');
-  if (typeSelect) typeSelect.focus();
+  showFeedbackTopics();
 }
 
 function closeFeedbackModal() {
@@ -433,12 +494,11 @@ async function submitFeedback() {
   if (feedbackSubmitting) return; // защита от двойной отправки
   clearFeedbackErrors();
 
-  const typeEl = $id('feedbackType');
   const messageEl = $id('feedbackMessage');
   const contactEl = $id('feedbackContact');
-  if (!typeEl || !messageEl || !contactEl) return;
+  if (!messageEl || !contactEl) return;
 
-  const type = FEEDBACK_TYPES.includes(typeEl.value) ? typeEl.value : 'other';
+  const type = feedbackTopic ? FEEDBACK_TOPICS[feedbackTopic].type : 'other';
   const message = (messageEl.value || '').trim();
   const contact = (contactEl.value || '').trim();
 
@@ -506,7 +566,13 @@ function initFeedbackModal() {
 
   if (form) form.addEventListener('submit', (e) => { e.preventDefault(); submitFeedback(); });
   if (closeBtn) closeBtn.addEventListener('click', () => closeFeedbackModal());
-  if (cancelBtn) cancelBtn.addEventListener('click', () => closeFeedbackModal());
+  // «Назад» и стрелка возвращают к выбору темы, крестик закрывает окно
+  if (cancelBtn) cancelBtn.addEventListener('click', () => { if (!feedbackSubmitting) showFeedbackTopics(); });
+  const backBtn = $id('feedbackBackBtn');
+  if (backBtn) backBtn.addEventListener('click', () => { if (!feedbackSubmitting) showFeedbackTopics(); });
+  document.querySelectorAll('#feedbackTopicStep .feedback-topic').forEach((tile) => {
+    tile.addEventListener('click', () => { playSound('ui'); chooseFeedbackTopic(tile.dataset.topic); });
+  });
   if (successCloseBtn) successCloseBtn.addEventListener('click', () => closeFeedbackModal());
 
   if (messageEl && counter) {

@@ -189,6 +189,52 @@ function scoreAbsoluteWhite(entry, fen) {
   return turn === 'w' ? entry.score : -entry.score;
 }
 
+/* ---- Общая шкала силы: потеря за ход ↔ рейтинг ----
+   Ею пользуются и разбор партии (какой уровень показала игра), и персонажи
+   (как часто ошибаться на заявленном рейтинге) — поэтому заявленный
+   рейтинг персонажа и оценка его игры в разборе сходятся.
+   Ориентир — партии живых игроков: гроссмейстер теряет 10–15 сантипешек
+   за ход, новичок — 150 и больше. */
+const CPL_ELO_TABLE = [
+  [6, 2850], [12, 2600], [20, 2350], [30, 2100], [45, 1800], [65, 1500],
+  [90, 1200], [120, 950], [160, 700], [220, 500], [300, 400],
+];
+function eloFromAvgCpl(cpl) {
+  const tbl = CPL_ELO_TABLE;
+  if (cpl <= tbl[0][0]) return tbl[0][1];
+  for (let i = 1; i < tbl.length; i++) {
+    const [c1, e1] = tbl[i];
+    if (cpl <= c1) {
+      const [c0, e0] = tbl[i - 1];
+      return Math.round(e0 + (e1 - e0) * (cpl - c0) / (c1 - c0));
+    }
+  }
+  return tbl[tbl.length - 1][1];
+}
+function cplForElo(elo) {
+  const tbl = CPL_ELO_TABLE;
+  if (elo >= tbl[0][1]) return tbl[0][0];
+  for (let i = 1; i < tbl.length; i++) {
+    const [c1, e1] = tbl[i];
+    if (elo >= e1) {
+      const [c0, e0] = tbl[i - 1];
+      return c0 + (c1 - c0) * (e0 - elo) / (e0 - e1);
+    }
+  }
+  return tbl[tbl.length - 1][0];
+}
+
+// Оценку обрезаем до ±10 пешек (мат — это тоже ±10): разница между «+15» и
+// «+25» ничего не говорит о качестве хода.
+const EVAL_CAP = 1000;
+function cappedCp(score) {
+  return score == null ? null : clamp(score, -EVAL_CAP, EVAL_CAP);
+}
+// Шансы на победу (0–100%) по оценке в сантипешках — формула lichess.
+function winChance(cp) {
+  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+}
+
 /* =========================================================================
    ФОНОВЫЙ АНАЛИЗ ПОЗИЦИИ (Infinite Analysis)
    Пока пользователь думает над ходом, движок в фоне анализирует текущую

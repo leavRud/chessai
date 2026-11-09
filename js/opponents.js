@@ -139,50 +139,66 @@ const traitK = (v) => clamp(Number(v) || 0, 0, 100) / 100;
 
 // Сила персонажа. Skill Level движка здесь не помогает: ходы персонажа берутся
 // из строк MultiPV (честные оценки), а не из bestmove, который Stockfish
-// намеренно портит на низком уровне. Поэтому слабость задаём сами:
-//  - tolerance — на сколько сантипешек хуже лучшего хода персонаж готов сыграть;
-//  - blunderChance — шанс «зевнуть»: на этом ходу коридор втрое шире;
+// намеренно портит на низком уровне. Поэтому слабость задаём сами — по той же
+// шкале «потеря за ход ↔ рейтинг» (cplForElo), по которой разбор партии
+// оценивает уровень игры. Так персонаж на 600 Elo и в разборе выглядит на 600.
+//  - temperature — насколько охотно персонаж играет ход хуже лучшего:
+//    чем она выше, тем чаще выбор падает на слабые варианты;
+//  - blunderChance — шанс «зевка»: ход, который движок даже не рассматривал;
 //  - multipv — слабым показываем больше вариантов, сильным только лучшие.
-// Осторожность сужает коридор и снижает шанс зевка, азарт — наоборот.
+// Осторожность делает игру точнее, эмоциональность — неровнее.
 function characterMovePolicy(c) {
   const strength = clamp((Number(c.elo) - 500) / 2400, 0, 1); // 0 — новичок, 1 — гроссмейстер
   const caution = traitK(c.caution);
-  const tolerance = (20 + (1 - strength) * 230) * (1.25 - 0.5 * caution); // 2900 → ~20, 1500 → ~115, 600 → ~240
-  const blunderChance = (1 - strength) ** 2 * 0.3 * (1.3 - 0.6 * caution); // 600 Elo → ~25%, 1500 → ~10%, 2400 → ~1%
-  const multipv = strength < 0.35 ? 5 : strength < 0.65 ? 4 : 3;
-  return { strength, caution, tolerance, blunderChance, multipv };
+  const emotion = traitK(c.emotionality);
+  const temperature = Math.max(6, cplForElo(Number(c.elo) || 1000) * (1.15 - 0.35 * caution) * (0.85 + 0.3 * emotion));
+  const blunderChance = (1 - strength) ** 3 * 0.24 * (1.3 - 0.6 * caution); // 600 Elo → ~20%, 1500 → ~5%, 2000 → ~1%
+  const multipv = strength < 0.35 ? 8 : strength < 0.65 ? 6 : 4;
+  return { strength, caution, temperature, blunderChance, multipv };
 }
 
-// Выбор хода по характеру — локально, без нейросети (раньше каждый такой
-// ход ждал ответа модели по несколько секунд). Из ходов в коридоре
-// tolerance берём тот, что ближе персонажу: агрессивные тянутся к взятиям и
-// шахам, любители жертв — к рискованным взятиям, осторожные — к рокировке и
-// к лучшему ходу движка. Чем слабее персонаж, тем меньше его волнует
-// потеря оценки и тем больше случайности; эмоциональность её усиливает.
+// Случайный ход из всех допустимых — так «зевают» живые новички.
+function randomLegalMove(fen) {
+  const moves = new Chess(fen).moves({ verbose: true });
+  if (!moves.length) return null;
+  const m = moves[Math.floor(Math.random() * moves.length)];
+  return { move: m.from + m.to + (m.promotion || ''), score: null };
+}
+
+// Выбор хода по характеру — локально, без нейросети. Каждому варианту движка
+// даём вес по потере оценки (чем слабее персонаж, тем меньше его это
+// волнует) и по вкусу персонажа: агрессивные тянутся к взятиям и шахам,
+// любители жертв — к рискованным взятиям, осторожные — к рокировке.
+// Ход выбирается случайно пропорционально весу.
 function pickCharacterMove(fen, candidates) {
   const c = state.character;
   const policy = characterMovePolicy(c);
-  const topScore = candidates[0].score;
-  const width = policy.tolerance * (Math.random() < policy.blunderChance ? 3 : 1);
-  const pool = candidates.filter(cd => topScore - cd.score <= width);
-  if (pool.length <= 1) return candidates[0];
-  const described = describeCandidateMoves(fen, pool);
-  if (described.length === 0) return candidates[0];
-
-  const lossWeight = (0.25 + 0.75 * policy.strength) * (0.6 + 0.8 * policy.caution);
-  const noise = 40 * (0.3 + traitK(c.emotionality)) * (1.6 - policy.strength);
-  let best = described[0];
-  let bestValue = -Infinity;
-  for (const d of described) {
-    let value = -(topScore - d.score) * lossWeight;
-    if (d.isCapture) value += 25 * traitK(c.aggression) + 20 * traitK(c.sacrifice);
-    if (d.tags.includes('шах')) value += 30 * traitK(c.aggression) + 15 * traitK(c.combination);
-    if (d.tags.includes('рокировка')) value += 25 * policy.caution;
-    if (d.isCapture && traitK(c.endgame) > 0.6) value += 10; // любители эндшпиля охотно меняются
-    value += (Math.random() - 0.5) * noise;
-    if (value > bestValue) { bestValue = value; best = d; }
+  if (Math.random() < policy.blunderChance) {
+    const blunder = randomLegalMove(fen);
+    if (blunder) return blunder;
   }
-  return pool.find(cd => cd.move === best.uci) || candidates[0];
+  const described = describeCandidateMoves(fen, candidates);
+  if (described.length <= 1) return candidates[0];
+
+  const topScore = cappedCp(candidates[0].score);
+  const logits = described.map((d) => {
+    let bonus = 0;
+    if (d.isCapture) bonus += 25 * traitK(c.aggression) + 20 * traitK(c.sacrifice);
+    if (d.tags.includes('шах')) bonus += 30 * traitK(c.aggression) + 15 * traitK(c.combination);
+    if (d.tags.includes('рокировка')) bonus += 25 * policy.caution;
+    if (d.isCapture && traitK(c.endgame) > 0.6) bonus += 10; // любители эндшпиля охотно меняются
+    const loss = topScore - cappedCp(d.score);
+    return (-loss + bonus) / policy.temperature;
+  });
+  const maxLogit = Math.max(...logits);
+  const weights = logits.map(l => Math.exp(l - maxLogit));
+  let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+  let chosen = described[0];
+  for (let i = 0; i < described.length; i++) {
+    r -= weights[i];
+    if (r <= 0) { chosen = described[i]; break; }
+  }
+  return candidates.find(cd => cd.move === chosen.uci) || candidates[0];
 }
 
 function detectCharacterMoveFlavor(chosenScore, topScore, moveObj) {
@@ -300,6 +316,8 @@ async function characterReact(context, isAuto = false) {
     state.lastAutoReplyTime = Date.now();
     state.pliesSinceCharacterSpoke = 0;
   }
+  // Пока персонаж пишет сам, игрок ждёт: поле ввода заблокировано
+  setCharacterTyping(true);
   try {
     // Последние реплики разговора — чтобы персонаж не забывал, о чём вы только что говорили.
     const messages = [
@@ -321,8 +339,8 @@ async function characterReact(context, isAuto = false) {
 
     // добавить в историю чата (API) – для контекста
     state.chatApiHistory.push({ role: 'assistant', content: clean });
-    // добавить в отображение
-    appendChatMessage('character', clean, { typewriter: true });
+    // добавить в отображение и дождаться, пока текст допечатается
+    await appendChatMessage('character', clean, { typewriter: true });
   } catch (error) {
     console.error('Ошибка реплики персонажа:', error);
     if (error.code === 'GAME_LIMIT_REACHED' && !state.gameLimitNotified && gameStartedAt === state.gameStartedAt) {
@@ -330,7 +348,10 @@ async function characterReact(context, isAuto = false) {
       logSystemChat(chatErrorMessage(error));
     }
   } finally {
-    if (isAuto && gameStartedAt === state.gameStartedAt) state.autoReplyPending = false;
+    if (gameStartedAt === state.gameStartedAt) {
+      if (isAuto) state.autoReplyPending = false;
+      setCharacterTyping(false);
+    }
   }
 }
 
@@ -341,6 +362,9 @@ function triggerCharacterEvents(move, isUserMove) {
   state.lastMoveFlavor = null;
   const game = state.game;
   const isMate = game.in_checkmate();
+  // Игрок ждёт ответа на свой вопрос — не перебиваем его самостоятельной
+  // репликой, иначе в чате окажутся два ответа подряд.
+  if (state.isAsking || state.characterTyping) return;
   // Мат звучит всегда, остальное — не чаще раза в CHARACTER_REPLY_COOLDOWN_MS
   const isBusy = state.autoReplyPending || Date.now() - state.lastAutoReplyTime < CHARACTER_REPLY_COOLDOWN_MS;
   if (!isMate && isBusy) return;

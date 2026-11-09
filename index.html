@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>chessai — игра против нейросети</title>
+<title>chesai — игра против нейросети</title>
 
 <!-- Поиск и превью ссылок в соцсетях/мессенджерах -->
 <meta name="description" content="Шахматы онлайн против Stockfish, вдвоём или против персонажей-нейросетей. ИИ-помощник объясняет ходы и позиции. Бесплатно, без установки." />
@@ -15,12 +15,12 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-<meta name="apple-mobile-web-app-title" content="chessai" />
+<meta name="apple-mobile-web-app-title" content="chesai" />
 <meta property="og:type" content="website" />
-<meta property="og:site_name" content="chessai" />
+<meta property="og:site_name" content="chesai" />
 <meta property="og:locale" content="ru_RU" />
 <meta property="og:url" content="https://chesai.ru/" />
-<meta property="og:title" content="chessai — шахматы против нейросети" />
+<meta property="og:title" content="chesai — шахматы против нейросети" />
 <meta property="og:description" content="Шахматы онлайн против Stockfish, вдвоём или против персонажей. ИИ-помощник объясняет ходы." />
 <meta property="og:image" content="https://chesai.ru/assests/og-image.jpg" />
 <meta property="og:image:width" content="1200" />
@@ -30,7 +30,7 @@
 {
   "@context": "https://schema.org",
   "@type": "WebApplication",
-  "name": "chessai",
+  "name": "chesai",
   "url": "https://chesai.ru/",
   "description": "Шахматы онлайн против Stockfish, вдвоём на одном устройстве или против персонажей под управлением нейросети. ИИ-помощник объясняет ходы.",
   "applicationCategory": "GameApplication",
@@ -91,7 +91,7 @@
       <script>document.getElementById('loadingKnightImg').src = window.__homeKnightSrc || 'assests/knight.webp';</script>
     </div>
 
-    <div class="loading-logo">chessai</div>
+    <div class="loading-logo">chesai</div>
 
     <div class="loading-status">
       <span id="loadingStatusText">Загрузка</span><span class="loading-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>
@@ -108,7 +108,7 @@
   <div id="homeKnights" class="home-knights-layer" aria-hidden="true"></div>
 
   <div class="home-topbar">
-    <h1 class="home-logo">chessai</h1>
+    <h1 class="home-logo">chesai</h1>
     <button id="homeSettingsBtn" class="settings-icon-btn menu-icon-btn" type="button" title="Меню" aria-label="Меню">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M3 6.5a1 1 0 0 1 1-1h16a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1Zm0 5.5a1 1 0 0 1 1-1h16a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1Zm1 4.5a1 1 0 1 0 0 2h16a1 1 0 1 0 0-2H4Z"/>
@@ -150,7 +150,7 @@
 <div class="app hidden">
 
   <header class="topbar neumorphic-raised">
-    <h1 class="logo">chessai</h1>
+    <h1 class="logo">chesai</h1>
     <div class="topbar-actions">
       <span id="modeLabel" class="badge"></span>
       <button id="appSettingsBtn" class="settings-icon-btn menu-icon-btn" type="button" title="Меню" aria-label="Меню">
@@ -376,7 +376,7 @@
     </div>
 
     <div id="analysisBlock" class="analysis-block hidden">
-      <div id="analysisLoading" class="analysis-loading hidden">Анализ партии движком…</div>
+      <div id="analysisLoading" class="analysis-loading hidden"></div>
       <div id="analysisContent" class="analysis-content"></div>
     </div>
 
@@ -419,19 +419,21 @@
       <button id="moveDetailCloseBtn" class="settings-close-btn" type="button" aria-label="Закрыть">✕</button>
     </div>
     <div class="move-detail-layout">
-      <div class="move-detail-board-wrap">
-        <div id="moveDetailBoard" class="mini-board"></div>
-        <svg id="moveDetailArrow" class="move-detail-arrow" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="move-detail-board-col">
+        <div class="move-detail-board-box">
+          <div id="moveDetailBoard" class="mini-board"></div>
+          <svg id="moveDetailArrow" class="move-detail-arrow" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+        </div>
+        <div id="moveDetailLegend" class="md-legend"></div>
       </div>
       <div class="move-detail-info">
         <div class="move-detail-info-head">
           <span id="moveDetailBadge" class="move-detail-badge"></span>
-          <p id="moveDetailSan" class="modal-sub"></p>
+          <div id="moveDetailSan" class="move-detail-san"></div>
         </div>
-        <div class="move-detail-scroll">
-          <div id="moveDetailLoading" class="analysis-loading">Анализ позиции…</div>
-          <div id="moveDetailComment" class="analysis-comment"></div>
-        </div>
+        <div id="moveDetailFacts" class="md-facts"></div>
+        <div id="moveDetailLoading" class="move-detail-loading"></div>
+        <div id="moveDetailComment" class="analysis-comment md-comment hidden"></div>
       </div>
     </div>
   </div>
@@ -445,20 +447,45 @@
       <button id="feedbackCloseBtn" class="settings-close-btn" type="button" aria-label="Закрыть">✕</button>
     </div>
 
-    <form id="feedbackForm" class="feedback-form" novalidate>
+    <!-- Шаг 1: с чем помочь — тема определяет подсказки и тип обращения -->
+    <div id="feedbackTopicStep" class="feedback-step">
+      <p class="feedback-lede">С чем помочь?</p>
+      <div class="feedback-topics">
+        <button type="button" class="feedback-topic" data-topic="bug">
+          <span class="feedback-topic-icon" data-icon="bug"></span>
+          <span class="feedback-topic-title">Что-то сломалось</span>
+          <span class="feedback-topic-sub">Приложим ходы партии</span>
+        </button>
+        <button type="button" class="feedback-topic" data-topic="suggestion">
+          <span class="feedback-topic-icon" data-icon="bulb"></span>
+          <span class="feedback-topic-title">Есть идея</span>
+          <span class="feedback-topic-sub">Что добавить или улучшить</span>
+        </button>
+        <button type="button" class="feedback-topic" data-topic="characters">
+          <span class="feedback-topic-icon" data-icon="chess-knight"></span>
+          <span class="feedback-topic-title">Персонажи</span>
+          <span class="feedback-topic-sub">Странный ответ или ход</span>
+        </button>
+        <button type="button" class="feedback-topic" data-topic="question">
+          <span class="feedback-topic-icon" data-icon="bubble"></span>
+          <span class="feedback-topic-title">Вопрос или другое</span>
+          <span class="feedback-topic-sub">Просто написать нам</span>
+        </button>
+      </div>
+      <p class="feedback-step-hint">Шаг 1 из 2 · дальше короткая форма</p>
+    </div>
+
+    <!-- Шаг 2: короткая форма под выбранную тему -->
+    <form id="feedbackForm" class="feedback-form hidden" novalidate>
       <div id="feedbackFieldsGroup">
-        <div class="feedback-field">
-          <label class="settings-row-label" for="feedbackType">Тип обращения</label>
-          <select id="feedbackType" class="settings-select">
-            <option value="bug">Ошибка</option>
-            <option value="suggestion">Предложение</option>
-            <option value="question">Вопрос</option>
-            <option value="other">Другое</option>
-          </select>
+        <div class="feedback-chosen">
+          <button type="button" id="feedbackBackBtn" class="feedback-back-btn" aria-label="Выбрать другую тему">←</button>
+          <span id="feedbackTopicChip" class="feedback-topic-chip"></span>
+          <span class="feedback-step-hint">Шаг 2 из 2</span>
         </div>
 
         <div class="feedback-field">
-          <label class="settings-row-label" for="feedbackMessage">Сообщение</label>
+          <label class="settings-row-label" for="feedbackMessage" id="feedbackMessageLabel">Сообщение</label>
           <textarea id="feedbackMessage" class="menu-text-input feedback-textarea" rows="4" maxlength="2000"
                     placeholder="Опишите проблему, предложение или вопрос…" required
                     aria-describedby="feedbackMessageCounter feedbackMessageError"></textarea>
@@ -466,9 +493,14 @@
           <span class="feedback-error" id="feedbackMessageError" role="alert"></span>
         </div>
 
+        <label id="feedbackAttachRow" class="feedback-attach hidden">
+          <input type="checkbox" id="feedbackAttachGame" checked>
+          <span><b>Приложить ходы текущей партии</b><small>Только ходы и режим игры — без переписки в чате</small></span>
+        </label>
+
         <div class="feedback-field">
           <label class="settings-row-label" for="feedbackContact">Контакт (необязательно)</label>
-          <input id="feedbackContact" type="text" class="menu-text-input" maxlength="120" placeholder="Email или другой способ связи">
+          <input id="feedbackContact" type="text" class="menu-text-input" maxlength="120" placeholder="Email, если ждёте ответа">
           <span class="feedback-error" id="feedbackContactError" role="alert"></span>
         </div>
 
@@ -476,16 +508,16 @@
 
         <div class="feedback-error feedback-form-error" id="feedbackFormError" role="alert" hidden></div>
 
-        <div class="modal-actions">
+        <div class="feedback-actions">
+          <button type="button" id="feedbackCancelBtn" class="btn btn-ghost">Назад</button>
           <button type="submit" id="feedbackSubmitBtn" class="btn btn-accent">Отправить</button>
-          <button type="button" id="feedbackCancelBtn" class="btn btn-ghost">Отмена</button>
         </div>
       </div>
 
       <div id="feedbackSuccess" class="feedback-success hidden">
-        <div class="feedback-success-icon">✓</div>
+        <div class="feedback-success-icon" data-icon="circle-check"></div>
         <div class="feedback-success-title">Спасибо!</div>
-        <p class="modal-sub">Сообщение успешно отправлено.</p>
+        <p class="modal-sub">Сообщение отправлено — мы читаем каждое.</p>
         <button type="button" id="feedbackSuccessCloseBtn" class="btn btn-accent">Закрыть</button>
       </div>
     </form>
@@ -643,7 +675,7 @@
           <div class="settings-group-title">Приложение</div>
           <div class="settings-row">
             <div>
-              <div class="settings-row-label">chessai на телефоне и ПК</div>
+              <div class="settings-row-label">chesai на телефоне и ПК</div>
               <div id="installAppHint" class="settings-row-desc"></div>
             </div>
             <button id="installAppBtn" class="btn btn-accent btn-sm hidden" type="button">Установить</button>
@@ -882,13 +914,13 @@
       <div id="view-about" class="side-view">
         <div class="about-hero">
           <div class="about-hero-icon">♞</div>
-          <div class="about-hero-name">chessai</div>
+          <div class="about-hero-name">chesai</div>
           <div class="about-hero-tagline">Шахматы с характером</div>
           <div class="about-hero-version" id="aboutHeroVersion">v1.0.0</div>
         </div>
 
         <div class="about-section">
-          <div class="about-section-title">Что такое chessai</div>
+          <div class="about-section-title">Что такое chesai</div>
           <p class="about-section-text">Игра против Stockfish и против персонажей с собственным характером, разбор партий, статистика, рейтинг Elo и достижения.</p>
         </div>
 

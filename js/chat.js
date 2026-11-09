@@ -163,7 +163,9 @@ document.querySelectorAll('.mobile-tab').forEach(tab => {
   tab.addEventListener('click', () => { playSound('ui'); setMobileTab(tab.dataset.tab); });
 });
 
+// Возвращает промис, который выполняется, когда текст допечатан до конца.
 function appendChatMessage(role, text, { typewriter = false } = {}) {
+  removeCharacterTypingBubble();
   state.chatDisplay.push({ role, text });
   if ((role === 'assistant' || role === 'character') && document.querySelector('.layout').dataset.mobileTab !== 'chat') {
     document.querySelector('.mobile-tab[data-tab="chat"]').classList.add('has-unread');
@@ -186,23 +188,62 @@ function appendChatMessage(role, text, { typewriter = false } = {}) {
 
   if (!typewriter) {
     textEl.textContent = text;
-    return;
+    return Promise.resolve();
   }
 
   let i = 0;
   const speed = 18;
   const chatLog = $id('chatLog');
-  const step = () => {
-    i += 1;
-    textEl.textContent = text.slice(0, i);
-    if (i % 3 === 0) chatLog.scrollTop = chatLog.scrollHeight;
-    if (i < text.length) {
-      setTimeout(step, speed);
-    } else {
-      chatLog.scrollTop = chatLog.scrollHeight;
-    }
-  };
-  step();
+  return new Promise((resolve) => {
+    const step = () => {
+      i += 1;
+      textEl.textContent = text.slice(0, i);
+      if (i % 3 === 0) chatLog.scrollTop = chatLog.scrollHeight;
+      if (i < text.length) {
+        setTimeout(step, speed);
+      } else {
+        chatLog.scrollTop = chatLog.scrollHeight;
+        resolve();
+      }
+    };
+    step();
+  });
+}
+
+/* ---- Персонаж пишет сам: пузырь «печатает…» и блокировка ввода ----
+   Пока персонаж готовит реплику без вопроса игрока, писать нельзя: иначе
+   вопрос и самостоятельная реплика разминутся, и в чате окажутся два ответа
+   подряд, не связанные друг с другом. */
+function showCharacterTypingBubble() {
+  if ($id('characterTypingBubble')) return;
+  const div = document.createElement('div');
+  div.id = 'characterTypingBubble';
+  div.className = 'msg msg-character msg-typing';
+  div.innerHTML = '<span class="msg-character-name"></span><span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span>';
+  div.querySelector('.msg-character-name').textContent = state.character ? state.character.name : '';
+  $id('chatLog').appendChild(div);
+  $id('chatLog').scrollTop = $id('chatLog').scrollHeight;
+}
+function removeCharacterTypingBubble() {
+  const el = $id('characterTypingBubble');
+  if (el) el.remove();
+}
+
+function setCharacterTyping(isTyping) {
+  state.characterTyping = isTyping;
+  const input = $id('chatInput');
+  input.disabled = isTyping;
+  // Обычную подсказку запоминаем при первом включении: к этому моменту
+  // интерфейс уже переведён на выбранный язык.
+  if (isTyping && input.dataset.placeholder == null) input.dataset.placeholder = input.getAttribute('placeholder') || '';
+  if (isTyping && state.character) {
+    input.setAttribute('placeholder', t('{name} пишет…', { name: state.character.name }));
+  } else if (input.dataset.placeholder != null) {
+    input.setAttribute('placeholder', input.dataset.placeholder);
+  }
+  $id('askBtn').disabled = isTyping || state.isAsking || input.value.trim().length === 0;
+  if (isTyping) showCharacterTypingBubble();
+  else removeCharacterTypingBubble();
 }
 
 function logSystemChat(text) {
@@ -211,14 +252,14 @@ function logSystemChat(text) {
 
 function setAskLoading(isLoading) {
   state.isAsking = isLoading;
-  $id('askBtn').disabled = isLoading || $id('chatInput').value.trim().length === 0;
+  $id('askBtn').disabled = isLoading || state.characterTyping || $id('chatInput').value.trim().length === 0;
   $id('askBtn').textContent = isLoading ? t('Думаю…') : t('Спросить');
 }
 
 async function handleAsk() {
   const input = $id('chatInput');
   const question = input.value.trim();
-  if (!question || state.isAsking || !state.game) return;
+  if (!question || state.isAsking || state.characterTyping || !state.game) return;
   if (!chatSignedIn) {
     logSystemChat(chatErrorMessage({ code: 'AUTH_REQUIRED' }));
     openAuthModal();
@@ -243,8 +284,12 @@ async function handleAsk() {
     const cleanReply = stripMarkdown(reply);
     state.chatApiHistory.push({ role: 'assistant', content: reply });
     const isCharacterReply = state.mode === 'characters' && state.character;
-    if (isCharacterReply) state.pliesSinceCharacterSpoke = 0;
-    appendChatMessage(isCharacterReply ? 'character' : 'assistant', cleanReply || t('(пустой ответ модели)'), { typewriter: true });
+    if (isCharacterReply) {
+      // Только что ответил игроку — сам заговорит не раньше, чем через паузу
+      state.pliesSinceCharacterSpoke = 0;
+      state.lastAutoReplyTime = Date.now();
+    }
+    await appendChatMessage(isCharacterReply ? 'character' : 'assistant', cleanReply || t('(пустой ответ модели)'), { typewriter: true });
     hideConnectionBanner();
   } catch (error) {
     console.error('Ошибка чата:', error);
@@ -270,7 +315,7 @@ $id('chatInput').addEventListener('keydown', (e) => {
 $id('chatInput').addEventListener('input', () => {
   const hasText = $id('chatInput').value.trim().length > 0;
   $id('askBtn').classList.toggle('btn-primary-active', hasText);
-  $id('askBtn').disabled = !hasText;
+  $id('askBtn').disabled = !hasText || state.isAsking || state.characterTyping;
 });
 $id('askBtn').disabled = $id('chatInput').value.trim().length === 0;
 

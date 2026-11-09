@@ -47,6 +47,7 @@ function initGame() {
   state.lastAutoReplies = [];
   state.autoReplyPending = false;
   state.pliesSinceCharacterSpoke = 0;
+  setCharacterTyping(false);
 
   // Новая партия — старый кэш анализа больше не актуален
   clearAnalysisCache();

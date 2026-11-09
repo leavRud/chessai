@@ -2,249 +2,524 @@
 'use strict';
 
 /* =========================================================================
-   ДЕТАЛИ ХОДА (мини-доска + анализ)
+   ЗАГРУЗЧИК С КОНЁМ
+   Конь прыгает внутри кольца. Без процента кольцо крутится, с процентом —
+   заполняется по ходу работы (разбор партии).
+   ========================================================================= */
+const KNIGHT_SRC_BY_ACCENT = {
+  gold: 'assests/knight.webp',
+  maroon: 'assests/knight-red.webp',
+  blue: 'assests/knight-blue.webp',
+  green: 'assests/knight-green.webp',
+};
+const KNIGHT_RING_LENGTH = 2 * Math.PI * 28;
+
+function knightLoaderHtml(text, { determinate = false } = {}) {
+  const src = KNIGHT_SRC_BY_ACCENT[document.documentElement.dataset.accent] || KNIGHT_SRC_BY_ACCENT.gold;
+  return `<div class="knight-loader${determinate ? ' is-determinate' : ''}" role="status">
+    <div class="knight-loader-stage">
+      <svg class="knight-loader-ring" viewBox="0 0 64 64" aria-hidden="true">
+        <circle class="knight-loader-track" cx="32" cy="32" r="28"></circle>
+        <circle class="knight-loader-arc" cx="32" cy="32" r="28"
+          style="stroke-dasharray:${KNIGHT_RING_LENGTH.toFixed(1)};stroke-dashoffset:${determinate ? KNIGHT_RING_LENGTH.toFixed(1) : (KNIGHT_RING_LENGTH * 0.72).toFixed(1)}"></circle>
+      </svg>
+      <img class="knight-loader-img" src="${src}" alt="">
+      <span class="knight-loader-shadow" aria-hidden="true"></span>
+    </div>
+    <div class="knight-loader-text">${escapeHtml(text)}</div>
+  </div>`;
+}
+function setKnightLoaderProgress(root, percent, text) {
+  const arc = root.querySelector('.knight-loader-arc');
+  if (arc) arc.style.strokeDashoffset = (KNIGHT_RING_LENGTH * (1 - clamp(percent, 0, 100) / 100)).toFixed(1);
+  const label = root.querySelector('.knight-loader-text');
+  if (label && text != null) label.textContent = text;
+}
+
+/* =========================================================================
+   ОЦЕНКА ОДНОГО ХОДА
+   Общая для разбора партии и для окна «Анализ хода» (в т.ч. по клику на
+   ход в списке ходов, когда разбора ещё не было).
+   ========================================================================= */
+// Пороги качества хода — по падению шансов на победу (как на lichess), а не по
+// сырым сантипешкам: «+12 → +9» ничего не меняет, а «+1 → −2» — серьёзная ошибка.
+const WIN_DROP_INACCURACY = 10;
+const WIN_DROP_MISTAKE = 20;
+const WIN_DROP_BLUNDER = 30;
+// Ход несёт информацию об уровне, только пока партия не решена: в позиции
+// «+10» любой ход «точный» и ничего не говорит о силе игрока.
+const DECIDED_EVAL = 700;
+// Первые ходы почти всегда «как по книге» — лучшим ходом партии их не считаем.
+const OPENING_PLIES = 12;
+
+function classifyWinDrop(drop) {
+  if (drop >= WIN_DROP_BLUNDER) return 'blunder';
+  if (drop >= WIN_DROP_MISTAKE) return 'mistake';
+  if (drop >= WIN_DROP_INACCURACY) return 'inaccuracy';
+  return 'ok';
+}
+function moveAccuracyFromWinDrop(drop) {
+  return clamp(103.1668 * Math.exp(-0.04354 * Math.max(0, drop)) - 3.1669, 0, 100);
+}
+
+// before/after — записи анализа (score относительно стороны, чей ход в FEN).
+function buildMoveItem(move, ply, fenBefore, fenAfter, before, after) {
+  const whiteBefore = scoreAbsoluteWhite(before, fenBefore);
+  const whiteAfter = scoreAbsoluteWhite(after, fenAfter);
+  const sign = move.color === 'w' ? 1 : -1;
+  const capBefore = whiteBefore == null ? null : cappedCp(whiteBefore) * sign;
+  const capAfter = whiteAfter == null ? null : cappedCp(whiteAfter) * sign;
+  const known = capBefore != null && capAfter != null;
+  const loss = known ? Math.max(0, capBefore - capAfter) : 0;
+  const winBefore = capBefore != null ? winChance(capBefore) : null;
+  const winAfter = capAfter != null ? winChance(capAfter) : null;
+  const winDrop = known ? Math.max(0, winBefore - winAfter) : 0;
+  const classification = known ? classifyWinDrop(winDrop) : 'ok';
+  return {
+    move, ply, fenBefore, fenAfter,
+    bestMove: before && before.bestMove || null,
+    playedMove: move.san,
+    evalWhiteBefore: whiteBefore, // как есть, с матами — для подписи «мат в N»
+    evalWhiteAfter: whiteAfter,
+    evalBefore: capBefore, // с точки зрения ходившего, обрезано до ±10 пешек
+    evalAfter: capAfter,
+    winBefore, winAfter, winDrop,
+    accuracy: known ? moveAccuracyFromWinDrop(winDrop) : null,
+    depth: before && before.depth || 0,
+    pv: before && before.pv || null,
+    loss,
+    delta: move.color === 'w' ? -loss : loss, // сохранено для обратной совместимости (achievements.js)
+    classification,
+    critical: classification === 'mistake' || classification === 'blunder',
+    informative: known && (Math.abs(capBefore) < DECIDED_EVAL || Math.abs(capAfter) < DECIDED_EVAL),
+  };
+}
+
+const MOVE_CLASS_LABELS = {
+  best: 'Лучший ход',
+  ok: 'Хороший ход',
+  inaccuracy: 'Неточность',
+  mistake: 'Ошибка',
+  blunder: 'Зевок',
+};
+function moveVerdict(item) {
+  if (!item || item.evalBefore == null || item.evalAfter == null) return null;
+  const isEngineBest = item.bestMove && item.move && (item.move.from + item.move.to) === item.bestMove.slice(0, 4);
+  if (item.classification === 'ok' && (isEngineBest || item.loss <= 10)) return 'best';
+  return item.classification;
+}
+
+// «+1.4», «−0.3», «мат в 3»
+function formatEval(whiteScore) {
+  if (whiteScore == null) return '—';
+  if (Math.abs(whiteScore) >= 90000) {
+    const n = 100000 - Math.abs(whiteScore);
+    const side = whiteScore > 0 ? t('белым') : t('чёрным');
+    return n <= 0 ? t('мат') : t('мат {side} в {n}', { side, n });
+  }
+  const pawns = whiteScore / 100;
+  if (Math.abs(pawns) < 0.05) return '0.0';
+  return `${pawns > 0 ? '+' : '−'}${Math.abs(pawns).toFixed(1)}`;
+}
+function moveNumberLabel(item) {
+  const fullMove = parseInt((item.fenBefore || '').split(' ')[5], 10) || Math.floor(item.ply / 2) + 1;
+  return item.move.color === 'w' ? `${fullMove}.` : `${fullMove}…`;
+}
+function uciToSan(fen, uci) {
+  if (!uci) return null;
+  try {
+    const g = new Chess(fen);
+    const mv = g.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci.length === 5 ? uci[4] : 'q' });
+    return mv ? mv.san : uci;
+  } catch (e) { return uci; }
+}
+
+/* =========================================================================
+   СТРЕЛКИ НА МИНИ-ДОСКЕ
+   Толстая полупрозрачная стрелка с широким наконечником; ход коня рисуется
+   уголком, как его и видит глаз. Вся стрелка — одна группа с общей
+   прозрачностью, поэтому стык стержня и наконечника не темнеет.
+   ========================================================================= */
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const ARROW_COLORS = {
+  best: '#5CB87A',
+  ok: '#7FB2E5',
+  inaccuracy: '#E3B341',
+  mistake: '#E8873A',
+  blunder: '#E05555',
+  engine: '#5CB87A',
+  neutral: 'var(--gold)',
+};
+
+function squareCenter(sq, flipped) {
+  const file = 'abcdefgh'.indexOf(sq[0]);
+  const rank = parseInt(sq[1], 10) - 1;
+  const x = (file + 0.5) * 12.5;
+  const y = (7 - rank + 0.5) * 12.5;
+  return flipped ? { x: 100 - x, y: 100 - y } : { x, y };
+}
+
+function drawBoardArrow(svg, from, to, color, { flipped = false, opacity = 0.9, width = 3.1, dashed = false } = {}) {
+  const a = squareCenter(from, flipped);
+  const b = squareCenter(to, flipped);
+  const df = Math.abs('abcdefgh'.indexOf(from[0]) - 'abcdefgh'.indexOf(to[0]));
+  const dr = Math.abs(parseInt(from[1], 10) - parseInt(to[1], 10));
+  const isKnightJump = (df === 1 && dr === 2) || (df === 2 && dr === 1);
+  // Уголок коня: сначала на две клетки, потом на одну
+  const points = [a];
+  if (isKnightJump) points.push(dr === 2 ? { x: a.x, y: b.y } : { x: b.x, y: a.y });
+
+  const prev = points[points.length - 1];
+  const len = Math.hypot(b.x - prev.x, b.y - prev.y) || 1;
+  const ux = (b.x - prev.x) / len;
+  const uy = (b.y - prev.y) / len;
+  const headLen = 5.4;
+  const headHalf = 3.9;
+  const tip = { x: b.x + ux * 1.6, y: b.y + uy * 1.6 };
+  const base = { x: tip.x - ux * headLen, y: tip.y - uy * headLen };
+  points.push({ x: base.x + ux * 0.6, y: base.y + uy * 0.6 }); // стержень заходит под наконечник
+
+  const g = document.createElementNS(SVG_NS, 'g');
+  g.setAttribute('class', 'board-arrow');
+  g.setAttribute('opacity', String(opacity));
+  g.style.color = color;
+
+  const shaft = document.createElementNS(SVG_NS, 'polyline');
+  shaft.setAttribute('points', points.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' '));
+  shaft.setAttribute('fill', 'none');
+  shaft.setAttribute('stroke', 'currentColor');
+  shaft.setAttribute('stroke-width', String(width));
+  shaft.setAttribute('stroke-linecap', 'round');
+  shaft.setAttribute('stroke-linejoin', 'round');
+  if (dashed) shaft.setAttribute('stroke-dasharray', '3.2 2.4');
+  g.appendChild(shaft);
+
+  const head = document.createElementNS(SVG_NS, 'polygon');
+  const px = -uy;
+  const py = ux;
+  head.setAttribute('points', [
+    `${tip.x.toFixed(2)},${tip.y.toFixed(2)}`,
+    `${(base.x + px * headHalf).toFixed(2)},${(base.y + py * headHalf).toFixed(2)}`,
+    `${(base.x - px * headHalf).toFixed(2)},${(base.y - py * headHalf).toFixed(2)}`,
+  ].join(' '));
+  head.setAttribute('fill', 'currentColor');
+  head.setAttribute('stroke', 'currentColor');
+  head.setAttribute('stroke-width', '0.8');
+  head.setAttribute('stroke-linejoin', 'round');
+  g.appendChild(head);
+
+  svg.appendChild(g);
+}
+
+function highlightDetailSquares(from, to, verdict) {
+  document.querySelectorAll('#moveDetailBoard [data-square]').forEach((el) => {
+    el.classList.remove('md-sq-from', 'md-sq-to');
+    el.removeAttribute('data-verdict');
+  });
+  const fromEl = document.querySelector(`#moveDetailBoard [data-square="${from}"]`);
+  const toEl = document.querySelector(`#moveDetailBoard [data-square="${to}"]`);
+  if (fromEl) fromEl.classList.add('md-sq-from');
+  if (toEl) { toEl.classList.add('md-sq-to'); if (verdict) toEl.dataset.verdict = verdict; }
+}
+
+/* =========================================================================
+   ОКНО «АНАЛИЗ ХОДА»
    ========================================================================= */
 let moveDetailBoard = null;
+let moveDetailToken = 0;
+let moveDetailItem = null; // оценка хода, открытого сейчас (null — ещё считается)
+// Разбор последней партии: окно хода берёт отсюда готовые оценки, а не
+// пересчитывает их заново.
+let lastMoveAnalysis = [];
 
-async function openMoveDetail(fen, san, label) {
-  const modal = document.getElementById('moveDetailModal');
-  const title = document.getElementById('moveDetailTitle');
-  const sanEl = document.getElementById('moveDetailSan');
-  const badgeEl = document.getElementById('moveDetailBadge');
-  const commentEl = document.getElementById('moveDetailComment');
-  const loadingEl = document.getElementById('moveDetailLoading');
-  const arrowSvg = document.getElementById('moveDetailArrow');
+function renderMoveDetailFacts(item) {
+  const factsEl = $id('moveDetailFacts');
+  const verdict = moveVerdict(item);
+  if (!verdict) { factsEl.innerHTML = ''; return; }
+  const bestSan = uciToSan(item.fenBefore, item.bestMove);
+  const winB = Math.round(item.winBefore);
+  const winA = Math.round(item.winAfter);
+  const winDelta = winA - winB;
+  const lossPawns = (item.loss / 100).toFixed(1);
+  const accuracy = Math.round(item.accuracy);
+  const isEngineBest = verdict === 'best' && bestSan === item.move.san;
 
-  title.textContent = t('Анализ хода');
-  sanEl.textContent = t('Ход: {san}', { san });
+  const verdictNote = {
+    best: isEngineBest ? t('Совпадает с первой линией Stockfish') : t('Почти не уступает лучшему ходу'),
+    ok: t('Позиция сохранена, есть ход чуть точнее'),
+    inaccuracy: t('Небольшая потеря, позиция ещё держится'),
+    mistake: t('Заметно ухудшает позицию'),
+    blunder: t('Резко меняет оценку партии'),
+  }[verdict];
+
+  factsEl.innerHTML = `
+    <div class="md-verdict" data-verdict="${verdict}">
+      <span class="md-verdict-dot" aria-hidden="true"></span>
+      <div class="md-verdict-text">
+        <b>${t(MOVE_CLASS_LABELS[verdict])}</b>
+        <span>${escapeHtml(verdictNote)}</span>
+      </div>
+      <div class="md-verdict-score" title="${escapeHtml(t('Точность хода'))}"><b>${accuracy}%</b><span>${t('точность')}</span></div>
+    </div>
+
+    <div class="md-win">
+      <div class="md-win-head">
+        <span>${t('Шансы на победу у {side}', { side: item.move.color === 'w' ? t('белых') : t('чёрных') })}</span>
+        <b>${winB}% → ${winA}% <em class="${winDelta < 0 ? 'is-down' : 'is-up'}">${winDelta > 0 ? '+' : winDelta < 0 ? '−' : '±'}${Math.abs(winDelta)}</em></b>
+      </div>
+      <div class="md-win-track">
+        <span class="md-win-fill" style="width:${winA}%"></span>
+        <span class="md-win-marker" style="left:${winB}%" title="${escapeHtml(t('до хода'))}"></span>
+      </div>
+    </div>
+
+    <div class="md-tiles">
+      <div class="md-tile"><span>${t('Оценка')}</span><b>${formatEval(item.evalWhiteBefore)} → ${formatEval(item.evalWhiteAfter)}</b></div>
+      <div class="md-tile"><span>${t('Потеря')}</span><b>${item.loss < 5 ? t('нет') : t('{n} пешки', { n: lossPawns })}</b></div>
+      <div class="md-tile md-tile-best"><span>${t('Лучший по Stockfish')}</span><b>${isEngineBest ? `${escapeHtml(item.move.san)} ✓` : escapeHtml(bestSan || '—')}</b></div>
+    </div>`;
+}
+
+// chessboard.js округляет размер доски до кратного 8 пикселей, поэтому слой
+// со стрелками подгоняем ровно под саму доску, а не под её контейнер.
+function alignArrowLayer() {
+  const svg = $id('moveDetailArrow');
+  const boardEl = document.querySelector('#moveDetailBoard .board-b72b1');
+  const box = svg.parentElement;
+  if (!boardEl || !box) return;
+  const b = boardEl.getBoundingClientRect();
+  const c = box.getBoundingClientRect();
+  svg.style.left = `${b.left - c.left}px`;
+  svg.style.top = `${b.top - c.top}px`;
+  svg.style.width = `${b.width}px`;
+  svg.style.height = `${b.height}px`;
+}
+
+function drawMoveDetailArrows(item, playedMove) {
+  const svg = $id('moveDetailArrow');
+  svg.innerHTML = '';
+  alignArrowLayer();
+  const legend = $id('moveDetailLegend');
+  const verdict = moveVerdict(item);
+  const playedColor = verdict ? ARROW_COLORS[verdict] : ARROW_COLORS.neutral;
+  const bestUci = item && item.bestMove;
+  const sameAsBest = bestUci && playedMove && bestUci.slice(0, 4) === playedMove.from + playedMove.to;
+
+  if (bestUci && !sameAsBest) {
+    drawBoardArrow(svg, bestUci.slice(0, 2), bestUci.slice(2, 4), ARROW_COLORS.engine, { opacity: 0.85, width: 2.6, dashed: true });
+  }
+  if (playedMove) drawBoardArrow(svg, playedMove.from, playedMove.to, playedColor);
+  if (playedMove) highlightDetailSquares(playedMove.from, playedMove.to, verdict);
+
+  const rows = [];
+  if (playedMove) rows.push(`<span class="md-legend-item"><i style="background:${playedColor}"></i>${t('Сыгранный ход')}</span>`);
+  if (bestUci && !sameAsBest) rows.push(`<span class="md-legend-item"><i class="is-dashed" style="background:${ARROW_COLORS.engine}"></i>${t('Лучший ход')}</span>`);
+  legend.innerHTML = rows.join('');
+}
+
+async function openMoveDetail(fenBefore, san, label = null) {
+  const token = ++moveDetailToken;
+  moveDetailItem = null;
+  const modal = $id('moveDetailModal');
+  const badgeEl = $id('moveDetailBadge');
+  const sanEl = $id('moveDetailSan');
+  const commentEl = $id('moveDetailComment');
+  const loadingEl = $id('moveDetailLoading');
+  const factsEl = $id('moveDetailFacts');
+
+  $id('moveDetailTitle').textContent = t('Анализ хода');
   commentEl.innerHTML = '';
+  commentEl.classList.add('hidden');
+  factsEl.innerHTML = '';
+  $id('moveDetailArrow').innerHTML = '';
+  $id('moveDetailLegend').innerHTML = '';
+  loadingEl.innerHTML = knightLoaderHtml(t('Stockfish изучает позицию…'));
   loadingEl.classList.remove('hidden');
   modal.classList.remove('hidden');
-  arrowSvg.innerHTML = '';
 
   badgeEl.className = 'move-detail-badge';
+  const isFriend = state.mode === 'friend';
   if (label === 'best') {
-    badgeEl.innerHTML = achievementIconSvg('circle-check') + t('Лучший ход партии');
+    badgeEl.innerHTML = achievementIconSvg('circle-check') + (isFriend ? t('Лучший ход партии') : t('Ваш лучший ход'));
     badgeEl.classList.add('is-visible', 'is-best');
   } else if (label === 'worst') {
-    badgeEl.innerHTML = achievementIconSvg('circle-x') + t('Худший ход партии');
+    badgeEl.innerHTML = achievementIconSvg('circle-x') + (isFriend ? t('Худший ход партии') : t('Ваша главная ошибка'));
     badgeEl.classList.add('is-visible', 'is-worst');
   }
 
+  const tempGame = new Chess(fenBefore);
+  const playedMove = tempGame.move(san);
+  const fenAfter = playedMove ? tempGame.fen() : null;
+  const ply = state.fenHistory.indexOf(fenBefore);
+
+  const sideText = fenBefore.split(' ')[1] === 'w' ? t('ход белых') : t('ход чёрных');
+  const fullMove = parseInt(fenBefore.split(' ')[5], 10) || 1;
+  sanEl.innerHTML = `<b>${fullMove}${fenBefore.split(' ')[1] === 'w' ? '.' : '…'} ${escapeHtml(san)}</b><span>${sideText}</span>`;
+
+  // Позиция ДО хода: на ней видно и сыгранный ход, и то, что было лучше
   if (!moveDetailBoard) {
     moveDetailBoard = Chessboard('moveDetailBoard', {
-      position: fen,
+      position: fenBefore,
       draggable: false,
       pieceTheme: pieceThemeFn,
       showNotation: true,
     });
-    window.addEventListener('resize', () => moveDetailBoard && moveDetailBoard.resize());
+    window.addEventListener('resize', () => {
+      if (!moveDetailBoard) return;
+      moveDetailBoard.resize();
+      alignArrowLayer();
+      // resize() перерисовывает клетки — возвращаем подсветку хода
+      const mv = moveDetailItem && moveDetailItem.move;
+      if (mv) highlightDetailSquares(mv.from, mv.to, moveVerdict(moveDetailItem));
+    });
   } else {
-    moveDetailBoard.position(fen, false);
+    moveDetailBoard.position(fenBefore, false);
   }
-  const tempGame = new Chess(fen);
-  const playedMove = tempGame.move(san);
+  requestAnimationFrame(() => {
+    if (token !== moveDetailToken || !moveDetailBoard) return;
+    moveDetailBoard.resize();
+    moveDetailBoard.position(fenBefore, false);
+    if (playedMove) drawMoveDetailArrows(moveDetailItem, playedMove);
+  });
   if (!playedMove) {
     console.warn('Не удалось выполнить ход из SAN:', san);
-  } else {
-    const fromSq = playedMove.from;
-    const toSq = playedMove.to;
-    setTimeout(() => {
-      if (moveDetailBoard) {
-        moveDetailBoard.resize();
-        moveDetailBoard.position(tempGame.fen());
-      }
-      drawArrow(fromSq, toSq, arrowSvg);
-    }, 400);
+    loadingEl.classList.add('hidden');
+    return;
   }
 
   try {
-    const result = await analyzePosition(fen, { movetime: 600 });
-    const bestMoveUci = result.bestMove;
-    const score = result.score;
-
-    let bestMoveSan = bestMoveUci;
-    if (bestMoveUci) {
-      const tg2 = new Chess(fen);
-      const from = bestMoveUci.substring(0, 2);
-      const to = bestMoveUci.substring(2, 4);
-      const promotion = bestMoveUci.length === 5 ? bestMoveUci[4] : 'q';
-      const moveObj = tg2.move({ from, to, promotion });
-      if (moveObj) bestMoveSan = moveObj.san;
+    let item = lastMoveAnalysis.find(m => m.fenBefore === fenBefore && m.move.san === san) || null;
+    if (!item || !item.bestMove || item.evalBefore == null) {
+      const before = await analyzePosition(fenBefore, { movetime: 600 });
+      const after = await analyzePosition(fenAfter, { movetime: 500 });
+      item = buildMoveItem(playedMove, ply >= 0 ? ply : 0, fenBefore, fenAfter, before, after);
     }
+    if (token !== moveDetailToken) return;
 
+    moveDetailItem = item;
+    renderMoveDetailFacts(item);
+    drawMoveDetailArrows(item, playedMove);
+
+    const bestSan = uciToSan(fenBefore, item.bestMove);
     if (!chatSignedIn) {
-      commentEl.textContent = t('Лучший ход по Stockfish: {move}. Объяснение от нейросети доступно после входа в аккаунт.', { move: bestMoveSan || '—' });
+      loadingEl.classList.add('hidden');
+      commentEl.textContent = t('Объяснение от нейросети доступно после входа в аккаунт.');
+      commentEl.classList.remove('hidden');
       return;
     }
 
+    setKnightLoaderProgress(loadingEl, 0, t('Нейросеть объясняет ход…'));
+    const verdict = moveVerdict(item);
     const prompt = `
-Позиция (FEN): ${fen}
-Фактический ход: ${san}
-Лучший ход по мнению Stockfish (движка): ${bestMoveSan} (UCI: ${bestMoveUci})
-Оценка позиции (в центах, положительная — перевес белых): ${score !== null ? score : 'неизвестно'}
+Позиция до хода (FEN): ${fenBefore}
+Ходили: ${playedMove.color === 'w' ? 'белые' : 'чёрные'}. Сыгранный ход: ${san}.
+Лучший ход по Stockfish: ${bestSan || 'неизвестно'}.
+Оценка до хода: ${formatEval(item.evalWhiteBefore)}, после хода: ${formatEval(item.evalWhiteAfter)} (в пешках, плюс — перевес белых).
+Шансы ходившей стороны на победу: ${Math.round(item.winBefore)}% → ${Math.round(item.winAfter)}%.
+Категория хода по Stockfish: ${MOVE_CLASS_LABELS[verdict] || 'неизвестно'}.
 
-Сравни фактический ход с лучшим. Объясни, почему ход ${san} был хорош или плох. Укажи, какие угрозы он создаёт или не создаёт. Дай краткий комментарий (2-3 предложения) ${AI_LANGUAGE} простым текстом, без markdown.
+Объясни человеческим языком, почему ход ${san} получил такую оценку: что он делает, какие угрозы создаёт или пропускает${bestSan && bestSan !== san ? `, и чем лучше ${bestSan}` : ''}. Не называй других «лучших ходов», кроме хода Stockfish. 2-3 предложения ${AI_LANGUAGE}, простым текстом, без markdown.
 `;
-    const messages = [{ role: 'user', content: prompt }];
-    const reply = await provodChat(messages, { temperature: 0.4 });
+    const reply = await provodChat([{ role: 'user', content: prompt }], { temperature: 0.4 });
+    if (token !== moveDetailToken) return;
     commentEl.textContent = stripMarkdown(reply) || t('Не удалось получить комментарий.');
   } catch (error) {
+    if (token !== moveDetailToken) return;
     commentEl.textContent = chatErrorMessage(error);
   } finally {
-    loadingEl.classList.add('hidden');
+    if (token === moveDetailToken) {
+      loadingEl.classList.add('hidden');
+      if (commentEl.textContent) commentEl.classList.remove('hidden');
+    }
   }
-}
-
-function drawArrow(from, to, svgElement) {
-  svgElement.innerHTML = '';
-  const ns = 'http://www.w3.org/2000/svg';
-  const files = 'abcdefgh';
-  const fromCol = files.indexOf(from[0]) + 0.5;
-  const fromRow = 8 - parseInt(from[1], 10) + 0.5;
-  const toCol = files.indexOf(to[0]) + 0.5;
-  const toRow = 8 - parseInt(to[1], 10) + 0.5;
-  const x1 = (fromCol / 8) * 100;
-  const y1 = (fromRow / 8) * 100;
-  const x2 = (toCol / 8) * 100;
-  const y2 = (toRow / 8) * 100;
-
-  const angle = Math.atan2(y2 - y1, x2 - x1);
-  const headLen = 6.2;
-  const headSpread = 0.48;
-  // укорачиваем хвост стрелки, чтобы наконечник не "утопал" в линии
-  const shaftEndX = x2 - headLen * 0.8 * Math.cos(angle);
-  const shaftEndY = y2 - headLen * 0.8 * Math.sin(angle);
-
-  const shaft = document.createElementNS(ns, 'line');
-  shaft.setAttribute('x1', x1);
-  shaft.setAttribute('y1', y1);
-  shaft.setAttribute('x2', shaftEndX);
-  shaft.setAttribute('y2', shaftEndY);
-  shaft.setAttribute('stroke', 'var(--accent)');
-  shaft.setAttribute('stroke-width', '3.2');
-  shaft.setAttribute('stroke-linecap', 'round');
-  shaft.setAttribute('opacity', '0.92');
-  svgElement.appendChild(shaft);
-
-  const hx1 = x2 - headLen * Math.cos(angle - headSpread);
-  const hy1 = y2 - headLen * Math.sin(angle - headSpread);
-  const hx2 = x2 - headLen * Math.cos(angle + headSpread);
-  const hy2 = y2 - headLen * Math.sin(angle + headSpread);
-  const head = document.createElementNS(ns, 'polygon');
-  head.setAttribute('points', `${x2},${y2} ${hx1},${hy1} ${hx2},${hy2}`);
-  head.setAttribute('fill', 'var(--accent)');
-  svgElement.appendChild(head);
 }
 
 /* =========================================================================
    АНАЛИЗ ПАРТИИ
    ========================================================================= */
-let progressLabelEl = null;
-const progressContainer = document.createElement('div');
-progressContainer.id = 'fakeProgress';
-progressContainer.style.cssText = `
-  width: 100%;
-  height: 8px;
-  background: var(--bg-alt);
-  border-radius: 8px;
-  overflow: hidden;
-  margin: 10px 0;
-  box-shadow: var(--inset-sm);
-`;
-const progressBar = document.createElement('div');
-progressBar.style.cssText = `
-  width: 0%;
-  height: 100%;
-  background: var(--gold);
-  transition: width 0.3s ease;
-  border-radius: 8px;
-`;
-progressContainer.appendChild(progressBar);
-
-function ensureProgressUi() {
-  const loadingEl = $id('analysisLoading');
-  if (!document.getElementById('fakeProgress')) {
-    loadingEl.parentNode.insertBefore(progressContainer, loadingEl.nextSibling);
-  }
-  if (!progressLabelEl || !progressLabelEl.parentNode) {
-    progressLabelEl = document.createElement('div');
-    progressLabelEl.id = 'analysisProgressLabel';
-    progressLabelEl.className = 'analysis-progress-label';
-    progressContainer.parentNode.insertBefore(progressLabelEl, progressContainer.nextSibling);
-  }
-}
 function startProgress() {
-  ensureProgressUi();
-  progressBar.style.width = '0%';
-  progressLabelEl.textContent = t('Подготовка анализа…');
+  const loadingEl = $id('analysisLoading');
+  loadingEl.innerHTML = knightLoaderHtml(t('Подготовка анализа…'), { determinate: true });
 }
 function updateProgress(step, total, san) {
   const percent = Math.round((step / total) * 100);
-  progressBar.style.width = percent + '%';
-  progressLabelEl.textContent = san
+  setKnightLoaderProgress($id('analysisLoading'), percent, san
     ? t('Проверка хода: {san} ({percent}%)', { san, percent })
-    : t('Анализ начальной позиции… ({percent}%)', { percent });
+    : t('Анализ начальной позиции… ({percent}%)', { percent }));
 }
 function stopProgress(success = true) {
-  if (success) {
-    progressBar.style.width = '100%';
-    if (progressLabelEl) progressLabelEl.textContent = t('Готово');
-  }
-  setTimeout(() => {
-    if (progressContainer.parentNode) progressContainer.remove();
-    if (progressLabelEl && progressLabelEl.parentNode) progressLabelEl.remove();
-  }, success ? 500 : 0);
+  if (success) setKnightLoaderProgress($id('analysisLoading'), 100, t('Готово'));
 }
 
 function avg(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0; }
-function median(arr) {
-  if (!arr.length) return 0;
-  const s = [...arr].sort((a, b) => a - b);
-  const mid = Math.floor(s.length / 2);
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
-}
-function accuracyFromCpl(cpl) { return clamp(103.1668 * Math.exp(-0.04354 * cpl) - 3.1669, 0, 100); }
-function eloFromCpl(cpl) { return Math.round(clamp(2882 - 30 * cpl, 600, 2900)); }
 
-// Пороги качества хода в centipawn loss (ТЗ п.7/8).
-const CPL_INACCURACY = 50;
-const CPL_MISTAKE = 120;
-const CPL_BLUNDER = 250;
-
-function classifyLoss(loss) {
-  if (loss >= CPL_BLUNDER) return 'blunder';
-  if (loss >= CPL_MISTAKE) return 'mistake';
-  if (loss >= CPL_INACCURACY) return 'inaccuracy';
-  return 'ok';
+// Насколько заранее известна сила стороны: у персонажа — его заявленный
+// рейтинг, у Stockfish — рейтинг выбранного уровня. У игрока — неизвестна.
+function knownSideElo(color) {
+  if (state.mode === 'friend' || color === state.playerColor) return null;
+  if (state.mode === 'characters' && state.character) return state.character.elo;
+  if (state.mode === 'ai') return skillLevelToElo(state.skillLevel);
+  return null;
 }
 
-// Более информативная Accuracy: сочетание среднего/медианного/максимального
-// CPL плюс штраф за грубые ошибки с убывающей отдачей (sqrt), чтобы один
-// blunder заметно влиял, но не «убивал» точность всей партии (ТЗ п.8).
-function computeAccuracyV2({ avgCpl, medianCpl, maxCpl, blunders, mistakes, inaccuracies }) {
-  const base = accuracyFromCpl(avgCpl) * 0.55
-    + accuracyFromCpl(medianCpl) * 0.35
-    + accuracyFromCpl(maxCpl) * 0.10;
-  const penalty = Math.sqrt(blunders) * 6 + Math.sqrt(mistakes) * 2.5 + Math.sqrt(inaccuracies) * 0.8;
-  return clamp(base - penalty, 0, 100);
+// Уровень игры в этой партии. Считаем только по ходам, сделанным, пока
+// партия не была решена. Если таких ходов мало, у соперника с известной
+// силой оценка подтягивается к его рейтингу: одна короткая партия против
+// зевающего игрока не превращает новичка в гроссмейстера.
+const ELO_MIN_MOVES = 3;
+const ELO_PRIOR_WEIGHT = 6;
+function estimateSideElo(items, prior) {
+  const informative = items.filter(m => m.informative);
+  const n = informative.length;
+  if (n < ELO_MIN_MOVES) return { elo: prior, raw: null, moves: n };
+  const raw = eloFromAvgCpl(avg(informative.map(m => m.loss)));
+  const elo = prior == null ? raw : Math.round((raw * n + prior * ELO_PRIOR_WEIGHT) / (n + ELO_PRIOR_WEIGHT));
+  return { elo, raw, moves: n };
 }
 
-// Приблизительный Elo — качество игры В ЭТОЙ партии, не реальный рейтинг
-// (ТЗ п.9). Строится на прежней линейной базе от avgCpl, скорректированной
-// количеством серьёзных ошибок и итоговой Accuracy.
-function computeEloV2({ avgCpl, accuracy, blunders, mistakes }) {
-  let elo = eloFromCpl(avgCpl);
-  elo -= blunders * 40 + mistakes * 15;
-  elo += (accuracy - 70) * 3;
-  return Math.round(clamp(elo, 600, 2900));
+function sideStats(items, color) {
+  const own = items.filter(m => m.move.color === color);
+  const scored = own.filter(m => m.accuracy != null);
+  const count = (cls) => own.filter(m => m.classification === cls).length;
+  const prior = knownSideElo(color);
+  const est = estimateSideElo(own, prior);
+  return {
+    moves: own.length,
+    accuracy: scored.length ? avg(scored.map(m => m.accuracy)) : 0,
+    avgCpl: avg(own.map(m => m.loss)),
+    inaccuracies: count('inaccuracy'),
+    mistakes: count('mistake'),
+    blunders: count('blunder'),
+    elo: est.elo,
+    eloMoves: est.moves,
+    knownElo: prior,
+  };
 }
 
-// Счётчик запусков Review Analysis — если пользователь запустил новый анализ
-// (или он же — «Обновить анализ») пока предыдущий ещё фоново уточнялся,
-// старое фоновое уточнение узнаёт об этом (runId !== analysisRunId) и
-// прекращает себя, не затирая уже более новый результат.
-let analysisRunId = 0;
+// Ход, которым стоит гордиться: после дебюта, точный и заметно улучшивший
+// положение (обычно — наказание за ошибку соперника).
+function pickBestMove(items) {
+  const pool = items.filter(m => m.ply >= OPENING_PLIES && m.classification === 'ok' && m.loss <= 25 && m.winAfter != null);
+  if (!pool.length) return null;
+  let best = null;
+  let bestValue = -Infinity;
+  for (const m of pool) {
+    const prevOwn = items.find(p => p.ply === m.ply - 2);
+    const swing = prevOwn && prevOwn.winAfter != null ? m.winAfter - prevOwn.winAfter : 0;
+    const flags = m.move.flags || '';
+    const value = swing + (flags.includes('c') ? 3 : 0) + (m.move.san.includes('+') ? 2 : 0) - m.loss * 0.05;
+    if (value > bestValue) { bestValue = value; best = m; }
+  }
+  return best;
+}
+function pickWorstMove(items) {
+  let worst = null;
+  for (const m of items) {
+    if (m.classification === 'ok') continue; // хороший ход ошибкой не называем
+    if (!worst || m.winDrop > worst.winDrop || (m.winDrop === worst.winDrop && m.loss > worst.loss)) worst = m;
+  }
+  return worst;
+}
 
 // Считает moveAnalysis + агрегированную статистику (Accuracy/CPL/Elo/…) по
 // уже имеющемуся набору evaluations. Чистая функция без обращений к
@@ -253,79 +528,32 @@ let analysisRunId = 0;
 function computeGameStats(fens, moves, evaluations) {
   const moveAnalysis = [];
   for (let j = 0; j < moves.length; j++) {
-    const before = evaluations[j];
-    const after = evaluations[j + 1];
-    if (!before) continue;
-    // Оценки Stockfish (score cp) относительны к стороне, чей ход в данной
-    // FEN — прежде чем сравнивать «до» и «после», переводим обе в единую
-    // шкалу «с точки зрения белых» (ТЗ п.6: корректный учёт цвета/направления).
-    const evalBeforeAbs = scoreAbsoluteWhite(before, fens[j]);
-    const evalAfterAbs = scoreAbsoluteWhite(after, fens[j + 1]);
-    let loss = 0;
-    if (evalBeforeAbs != null && evalAfterAbs != null) {
-      const deltaAbs = evalAfterAbs - evalBeforeAbs; // положительно = сдвиг к белым
-      loss = Math.max(0, moves[j].color === 'w' ? -deltaAbs : deltaAbs);
-    }
-    const evalBeforeMover = evalBeforeAbs != null ? (moves[j].color === 'w' ? evalBeforeAbs : -evalBeforeAbs) : null;
-    const evalAfterMover = evalAfterAbs != null ? (moves[j].color === 'w' ? evalAfterAbs : -evalAfterAbs) : null;
-    moveAnalysis.push({
-      move: moves[j],
-      fenBefore: fens[j],
-      fenAfter: fens[j + 1],
-      bestMove: before.bestMove || null,
-      playedMove: moves[j].san,
-      evalBefore: evalBeforeMover,
-      evalAfter: evalAfterMover,
-      depth: before.depth || 0,
-      pv: before.pv || null,
-      loss,
-      delta: moves[j].color === 'w' ? -loss : loss, // сохранено для обратной совместимости
-      classification: classifyLoss(loss),
-      critical: classifyLoss(loss) === 'mistake' || classifyLoss(loss) === 'blunder',
-    });
+    if (!evaluations[j]) continue;
+    moveAnalysis.push(buildMoveItem(moves[j], j, fens[j], fens[j + 1], evaluations[j], evaluations[j + 1]));
   }
+  const white = sideStats(moveAnalysis, 'w');
+  const black = sideStats(moveAnalysis, 'b');
 
-  const whiteLosses = moveAnalysis.filter(m => m.move.color === 'w').map(m => m.loss);
-  const blackLosses = moveAnalysis.filter(m => m.move.color === 'b').map(m => m.loss);
-
-  const avgCplWhite = avg(whiteLosses);
-  const avgCplBlack = avg(blackLosses);
-  const medianCplWhite = median(whiteLosses);
-  const medianCplBlack = median(blackLosses);
-  const maxCplWhite = whiteLosses.length ? Math.max(...whiteLosses) : 0;
-  const maxCplBlack = blackLosses.length ? Math.max(...blackLosses) : 0;
-
-  const countByClass = (items, color, cls) => items.filter(m => m.move.color === color && m.classification === cls).length;
-  const statsWhite = {
-    inaccuracies: countByClass(moveAnalysis, 'w', 'inaccuracy'),
-    mistakes: countByClass(moveAnalysis, 'w', 'mistake'),
-    blunders: countByClass(moveAnalysis, 'w', 'blunder'),
-  };
-  const statsBlack = {
-    inaccuracies: countByClass(moveAnalysis, 'b', 'inaccuracy'),
-    mistakes: countByClass(moveAnalysis, 'b', 'mistake'),
-    blunders: countByClass(moveAnalysis, 'b', 'blunder'),
-  };
-
-  const accuracyWhite = computeAccuracyV2({ avgCpl: avgCplWhite, medianCpl: medianCplWhite, maxCpl: maxCplWhite, ...statsWhite });
-  const accuracyBlack = computeAccuracyV2({ avgCpl: avgCplBlack, medianCpl: medianCplBlack, maxCpl: maxCplBlack, ...statsBlack });
-  const eloWhite = computeEloV2({ avgCpl: avgCplWhite, accuracy: accuracyWhite, ...statsWhite });
-  const eloBlack = computeEloV2({ avgCpl: avgCplBlack, accuracy: accuracyBlack, ...statsBlack });
-
-  let bestMoveObj = null, worstMoveObj = null;
-  let bestLoss = Infinity, worstLoss = -Infinity;
-  for (const item of moveAnalysis) {
-    const loss = item.loss;
-    if (loss < bestLoss) { bestLoss = loss; bestMoveObj = item; }
-    if (loss > worstLoss && loss > 10) { worstLoss = loss; worstMoveObj = item; }
-  }
+  // Лучший и худший ход — ходы игрока (в игре вдвоём — любой стороны)
+  const mine = state.mode === 'friend' ? moveAnalysis : moveAnalysis.filter(m => m.move.color === state.playerColor);
 
   return {
-    moveAnalysis, avgCplWhite, avgCplBlack, medianCplWhite, medianCplBlack,
-    maxCplWhite, maxCplBlack, statsWhite, statsBlack,
-    accuracyWhite, accuracyBlack, eloWhite, eloBlack, bestMoveObj, worstMoveObj,
+    moveAnalysis, white, black,
+    accuracyWhite: white.accuracy, accuracyBlack: black.accuracy,
+    avgCplWhite: white.avgCpl, avgCplBlack: black.avgCpl,
+    eloWhite: white.elo, eloBlack: black.elo,
+    statsWhite: white, statsBlack: black,
+    bestMoveObj: pickBestMove(mine),
+    worstMoveObj: pickWorstMove(mine),
   };
 }
+
+// Счётчик запусков Review Analysis — если пользователь запустил новый анализ
+// (или он же — «Обновить анализ») пока предыдущий ещё фоново уточнялся,
+// старое фоновое уточнение узнаёт об этом (runId !== analysisRunId) и
+// прекращает себя, не затирая уже более новый результат.
+let analysisRunId = 0;
+
 async function requestAnalysis() {
   const btn = $id('requestAnalysisBtn');
   const loading = $id('analysisLoading');
@@ -357,12 +585,9 @@ async function requestAnalysis() {
     const baseDepth = weakPc ? ANALYSIS_TARGET.weakReviewBaseDepth : ANALYSIS_TARGET.reviewBaseDepth;
     const criticalDepth = weakPc ? ANALYSIS_TARGET.weakReviewCriticalDepth : ANALYSIS_TARGET.reviewCriticalDepth;
 
-    // ФАЗА 1 (быстрая, ТЗ п.2): НЕ ждём baseDepth/criticalDepth по каждой
-    // позиции — берём то, что уже накоплено в общем кэше (в т.ч. частично из
-    // Live Analysis прямо во время партии), и только для полностью
-    // непроанализированных позиций делаем короткий разовый скан, чтобы
-    // результат вообще был. Это даёт мгновенный предварительный
-    // Accuracy/CPL без «обязательного глубокого анализа всей партии».
+    // ФАЗА 1 (быстрая, ТЗ п.2): берём то, что уже накоплено в общем кэше
+    // (в т.ч. из Live Analysis во время партии), и только для полностью
+    // непроанализированных позиций делаем короткий разовый скан.
     const total = fens.length;
     const prelimEvaluations = [];
     for (let i = 0; i < fens.length; i++) {
@@ -373,25 +598,13 @@ async function requestAnalysis() {
 
     const prelimStats = computeGameStats(fens, moves, prelimEvaluations);
     stopProgress(true);
-    renderAnalysis({
-      totalPly: moves.length,
-      totalFullMoves: Math.ceil(moves.length / 2),
-      accuracyWhite: prelimStats.accuracyWhite, accuracyBlack: prelimStats.accuracyBlack,
-      eloWhite: prelimStats.eloWhite, eloBlack: prelimStats.eloBlack,
-      avgCplWhite: prelimStats.avgCplWhite, avgCplBlack: prelimStats.avgCplBlack,
-      bestMoveObj: prelimStats.bestMoveObj, worstMoveObj: prelimStats.worstMoveObj,
-      comment: t('Уточняю анализ партии в фоне…'),
-    }, { refining: true });
+    renderAnalysis(prelimStats, moves.length, t('Уточняю анализ партии в фоне…'), { refining: true });
     hideConnectionBanner();
 
-    // ФАЗА 2 (фоновая, ТЗ п.2): обычные позиции доуглубляются до baseDepth,
-    // критические — до criticalDepth с MultiPV 2–3; когда результат готов,
-    // Accuracy/CPL/Elo пересчитываются и отображение обновляется. Не ждём
-    // (не await) — интерфейс уже разблокирован в finally ниже.
+    // ФАЗА 2 (фоновая, ТЗ п.2): доуглубляем и пересчитываем, не блокируя окно.
     refineGameAnalysis(runId, fens, moves, weakPc, baseDepth, criticalDepth);
   } catch (error) {
     console.error('Ошибка анализа:', error);
-    stopProgress(false);
     content.innerHTML = `<p class="analysis-error">${t('Не удалось получить анализ.')} ${escapeHtml(error.message)}</p>`;
     showConnectionBanner(t('Ошибка: {error}', { error: error.message }));
   } finally {
@@ -402,13 +615,8 @@ async function requestAnalysis() {
 }
 
 // Фоновое углубление уже показанного предварительного результата (ТЗ п.2).
-// Ничего не блокирует — интерфейс к этому моменту уже разблокирован в
-// requestAnalysis. Проверяет runId на каждом шаге, чтобы не затереть более
-// новый запуск анализа, если пользователь нажал «Обновить анализ» повторно.
 async function refineGameAnalysis(runId, fens, moves, weakPc, baseDepth, criticalDepth) {
   try {
-    // Дренируем то, что уже накопилось в приоритетной очереди отложенного
-    // анализа (быстрые ходы партии) — подтягиваем их к базовой глубине.
     while (analysisQueue.length) {
       if (runId !== analysisRunId) return;
       await processAnalysisQueueOnce();
@@ -425,10 +633,8 @@ async function refineGameAnalysis(runId, fens, moves, weakPc, baseDepth, critica
 
     let stats = computeGameStats(fens, moves, evaluations);
 
-    // Критические ходы (ТЗ п.5/11): доанализируем позицию ДО хода глубже и
-    // с MultiPV 2-3. Ограничиваем число доанализов, чтобы не перегрузить
-    // слабый ПК.
-    const criticalItems = stats.moveAnalysis.filter(m => m.critical).sort((a, b) => b.loss - a.loss).slice(0, weakPc ? 3 : 8);
+    // Критические ходы (ТЗ п.5/11): позицию ДО хода — глубже и с MultiPV.
+    const criticalItems = stats.moveAnalysis.filter(m => m.critical).sort((a, b) => b.winDrop - a.winDrop).slice(0, weakPc ? 3 : 8);
     for (const item of criticalItems) {
       if (runId !== analysisRunId) return;
       try {
@@ -440,8 +646,6 @@ async function refineGameAnalysis(runId, fens, moves, weakPc, baseDepth, critica
     }
     if (runId !== analysisRunId) return;
 
-    // Пересчитываем финальную статистику на доуглублённых evaluations и
-    // переносим уточнённые depth/bestMove/PV/alternatives критических ходов.
     stats = computeGameStats(fens, moves, evaluations);
     stats.moveAnalysis.forEach((m) => {
       const refined = criticalItems.find(c => c.fenBefore === m.fenBefore && c.move.san === m.move.san);
@@ -454,8 +658,8 @@ async function refineGameAnalysis(runId, fens, moves, weakPc, baseDepth, critica
       const prompt = `Партия в шахматы (PGN): ${pgn}
 Точность белых (расчёт движка): ${stats.accuracyWhite.toFixed(1)}%, средняя потеря centipawn: ${stats.avgCplWhite.toFixed(0)}.
 Точность чёрных: ${stats.accuracyBlack.toFixed(1)}%, средняя потеря centipawn: ${stats.avgCplBlack.toFixed(0)}.
-Лучший ход партии: ${stats.bestMoveObj ? stats.bestMoveObj.move.san : '—'}.
-Худший ход партии: ${stats.worstMoveObj ? stats.worstMoveObj.move.san : '—'}.
+Лучший ход игрока: ${stats.bestMoveObj ? stats.bestMoveObj.move.san : '—'}.
+Главная ошибка игрока: ${stats.worstMoveObj ? stats.worstMoveObj.move.san : '—'}.
 Дай короткий (2-3 предложения) комментарий о партии ${AI_LANGUAGE} простым текстом, без markdown-разметки.`;
       const raw = await provodChat([{ role: 'user', content: prompt }], { temperature: 0.4 });
       comment = stripMarkdown(raw) || comment;
@@ -465,15 +669,7 @@ async function refineGameAnalysis(runId, fens, moves, weakPc, baseDepth, critica
 
     if (runId !== analysisRunId) return; // пользователь успел запустить новый анализ — не затираем его результат
 
-    renderAnalysis({
-      totalPly: moves.length,
-      totalFullMoves: Math.ceil(moves.length / 2),
-      accuracyWhite: stats.accuracyWhite, accuracyBlack: stats.accuracyBlack,
-      eloWhite: stats.eloWhite, eloBlack: stats.eloBlack,
-      avgCplWhite: stats.avgCplWhite, avgCplBlack: stats.avgCplBlack,
-      bestMoveObj: stats.bestMoveObj, worstMoveObj: stats.worstMoveObj,
-      comment,
-    });
+    renderAnalysis(stats, moves.length, comment);
 
     if (window.Achievements) {
       const evaluationsAbsoluteWhite = fens.map((fen, i) => scoreAbsoluteWhite(evaluations[i], fen));
@@ -489,36 +685,62 @@ async function refineGameAnalysis(runId, fens, moves, weakPc, baseDepth, critica
   }
 }
 
-function renderAnalysis(data, { refining = false } = {}) {
-  const {
-    totalPly, totalFullMoves, accuracyWhite, accuracyBlack,
-    eloWhite, eloBlack, avgCplWhite, avgCplBlack, bestMoveObj, worstMoveObj, comment,
-  } = data;
-  const content = $id('analysisContent');
-  let html = `<div class="analysis-stat"><span>${t('Всего ходов')}</span><b>${totalFullMoves} <span class="muted">(${t('{n} полуходов', { n: totalPly })})</span></b></div>`;
-  html += `<div class="analysis-stat"><span>${t('Точность белых')}</span><b>${accuracyWhite.toFixed(1)}% <span class="muted">(CPL ${avgCplWhite.toFixed(0)})</span></b></div>`;
-  html += `<div class="analysis-stat"><span>${t('Точность чёрных')}</span><b>${accuracyBlack.toFixed(1)}% <span class="muted">(CPL ${avgCplBlack.toFixed(0)})</span></b></div>`;
-  html += `<div class="analysis-stat"><span>${t('Оценка уровня (белые)')}</span><b>~${eloWhite} Elo</b></div>`;
-  html += `<div class="analysis-stat"><span>${t('Оценка уровня (чёрные)')}</span><b>~${eloBlack} Elo</b></div>`;
+function sideTitle(color) {
+  if (state.mode === 'friend') return color === 'w' ? t('Белые') : t('Чёрные');
+  if (color === state.playerColor) return t('Вы');
+  if (state.mode === 'characters' && state.character) return state.character.name;
+  return 'Stockfish';
+}
 
-  if (bestMoveObj) {
-    html += `<div class="move-card move-card-best" data-fen="${escapeHtml(bestMoveObj.fenBefore)}" data-san="${escapeHtml(bestMoveObj.move.san)}">
-      <span class="move-card-label">${achievementIconSvg('circle-check')}${t('Лучший ход')}</span><span class="move-card-san">${escapeHtml(bestMoveObj.move.san)}</span>
-    </div>`;
-  }
-  if (worstMoveObj) {
-    html += `<div class="move-card move-card-worst" data-fen="${escapeHtml(worstMoveObj.fenBefore)}" data-san="${escapeHtml(worstMoveObj.move.san)}">
-      <span class="move-card-label">${achievementIconSvg('circle-x')}${t('Худший ход')}</span><span class="move-card-san">${escapeHtml(worstMoveObj.move.san)}</span>
-    </div>`;
-  }
+function eloCell(side) {
+  if (side.elo == null) return `<span class="muted">${t('мало ходов')}</span>`;
+  const known = side.knownElo != null ? `<small>${t('заявлено ≈{elo}', { elo: side.knownElo })}</small>` : '';
+  return `~${side.elo}${known}`;
+}
+
+function moveCardHtml(kind, item) {
+  const verdict = moveVerdict(item);
+  const title = kind === 'best'
+    ? (state.mode === 'friend' ? t('Лучший ход партии') : t('Ваш лучший ход'))
+    : (state.mode === 'friend' ? t('Худший ход партии') : t('Ваша главная ошибка'));
+  const winDelta = Math.round(item.winAfter - item.winBefore);
+  const detail = kind === 'best'
+    ? t('{label} · шансы {win}%', { label: t(MOVE_CLASS_LABELS[verdict] || 'Хороший ход'), win: Math.round(item.winAfter) })
+    : t('{label} · шансы {delta}%', { label: t(MOVE_CLASS_LABELS[verdict] || 'Неточность'), delta: `${winDelta > 0 ? '+' : '−'}${Math.abs(winDelta)}` });
+  return `<button type="button" class="move-card move-card-${kind}" data-fen="${escapeHtml(item.fenBefore)}" data-san="${escapeHtml(item.move.san)}">
+    <span class="move-card-label">${achievementIconSvg(kind === 'best' ? 'circle-check' : 'circle-x')}
+      <span class="move-card-text"><span>${title}</span><small>${escapeHtml(detail)}</small></span>
+    </span>
+    <span class="move-card-san">${moveNumberLabel(item)} ${escapeHtml(item.move.san)}</span>
+  </button>`;
+}
+
+function renderAnalysis(stats, totalPly, comment, { refining = false } = {}) {
+  lastMoveAnalysis = stats.moveAnalysis;
+  const content = $id('analysisContent');
+  const first = state.mode === 'friend' ? 'w' : state.playerColor;
+  const second = first === 'w' ? 'b' : 'w';
+  const side = { w: stats.white, b: stats.black };
+  const A = side[first];
+  const B = side[second];
+  const triple = (s) => `<span class="ac-errors"><i class="is-inacc">${s.inaccuracies}</i><i class="is-mistake">${s.mistakes}</i><i class="is-blunder">${s.blunders}</i></span>`;
+
+  let html = `<div class="analysis-compare">
+    <div class="ac-row ac-head"><span>${t('{n} ходов', { n: Math.ceil(totalPly / 2) })}</span><b>${escapeHtml(sideTitle(first))}</b><b>${escapeHtml(sideTitle(second))}</b></div>
+    <div class="ac-row"><span>${t('Точность')}</span><b>${A.accuracy.toFixed(0)}%</b><b>${B.accuracy.toFixed(0)}%</b></div>
+    <div class="ac-row"><span>${t('Уровень игры')}</span><b>${eloCell(A)}</b><b>${eloCell(B)}</b></div>
+    <div class="ac-row"><span title="${escapeHtml(t('Средняя потеря за ход, в сотых долях пешки (CPL)'))}">${t('Средняя потеря')}</span><b>${A.avgCpl.toFixed(0)}</b><b>${B.avgCpl.toFixed(0)}</b></div>
+    <div class="ac-row"><span>${t('Неточности · ошибки · зевки')}</span><b>${triple(A)}</b><b>${triple(B)}</b></div>
+  </div>`;
+
+  if (stats.bestMoveObj) html += moveCardHtml('best', stats.bestMoveObj);
+  if (stats.worstMoveObj) html += moveCardHtml('worst', stats.worstMoveObj);
 
   html += `<p class="analysis-comment">${escapeHtml(comment)}</p>`;
   if (refining) {
-    // Предварительный результат (ТЗ п.2) — сообщаем, что цифры ещё уточняются
-    // в фоне; переиспользуем существующий класс, новых стилей не требуется.
     html += `<p class="analysis-disclaimer analysis-refining">${achievementIconSvg('hourglass')}${t('Быстрый предварительный результат — Stockfish продолжает углублять анализ в фоне, значения скоро уточнятся.')}</p>`;
   }
-  html += `<p class="analysis-disclaimer">${t('Точность, CPL и Elo рассчитаны Stockfish; Elo — грубая оценка, не официальный рейтинг.')}</p>`;
+  html += `<p class="analysis-disclaimer">${t('Уровень считается только по ходам, сделанным до того, как партия была решена; у соперника с известной силой он учитывает и заявленный рейтинг. Это грубая оценка, не официальный рейтинг.')}</p>`;
   content.innerHTML = html;
 
   content.querySelectorAll('.move-card').forEach(card => {
@@ -526,9 +748,7 @@ function renderAnalysis(data, { refining = false } = {}) {
       const label = card.classList.contains('move-card-best') ? 'best'
         : card.classList.contains('move-card-worst') ? 'worst' : null;
       openMoveDetail(card.dataset.fen, card.dataset.san, label);
-      if (card.classList.contains('move-card-best') && window.Achievements) {
-        window.Achievements.trackBestMoveView();
-      }
+      if (label === 'best' && window.Achievements) window.Achievements.trackBestMoveView();
     });
   });
 }

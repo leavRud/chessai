@@ -80,6 +80,7 @@ const state = {
 state.lastAutoReplyTime = 0;
 state.lastAutoReplies = [];
 state.autoReplyPending = false;
+state.characterTyping = false;
 state.pliesSinceCharacterSpoke = 0;
 state.gameLimitNotified = false;
 state.settings.temperature = temp;

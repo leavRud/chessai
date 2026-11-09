@@ -6,7 +6,7 @@
    ========================================================================= */
 // Сменились тема или акцентный цвет — то, что рисуется на canvas (снегопад),
 // само CSS-переменные не подхватит и перечитывает цвета по этому событию.
-const PALETTE_CHANGED_EVENT = 'chessai:palette-changed';
+const PALETTE_CHANGED_EVENT = 'chesai:palette-changed';
 
 function applyTheme(theme) {
   document.documentElement.classList.toggle('dark', theme === 'dark');

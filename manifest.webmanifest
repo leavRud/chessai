@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "chessai — шахматы против нейросети",
-  "short_name": "chessai",
+  "name": "chesai — шахматы против нейросети",
+  "short_name": "chesai",
   "description": "Шахматы против Stockfish, вдвоём или против персонажей-нейросетей. ИИ-помощник объясняет ходы.",
   "lang": "ru",
   "start_url": "/",
