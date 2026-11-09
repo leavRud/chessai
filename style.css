@@ -1013,7 +1013,7 @@ html:not(.dark) img.piece-417db { filter: drop-shadow(0 1px 1.5px rgba(40, 25, 1
     linear-gradient(45deg, var(--home-cell-b) 25%, transparent 25%, transparent 75%, var(--home-cell-b) 75%);
   background-size: calc(var(--cell) * 2) calc(var(--cell) * 2);
   background-position: 0 0, var(--cell) var(--cell);
-  filter: blur(2px);
+  filter: blur(1px); /* как у главного экрана в покое */
 }
 
 /* Снегопад идёт на том же фоне, что и на главном экране */
@@ -1197,16 +1197,26 @@ html:not([data-home-bg="snow"]) .loading-ring { display: none; }
   opacity: 0.8;
   z-index: 1;
 }
-.home-board-bg {
-  filter: blur(2px);          
-
+/* Фон главного экрана размыт слегка. Когда курсор на главном меню или на
+   любом открытом окне, размытие возвращается к прежнему — фон уходит назад. */
+.home-screen {
+  --home-bg-blur: 1px;
+  --home-figure-blur: 1px;
+  --home-snow-blur: 0.5px;
 }
-.home-knights-layer .home-figure {
-  filter: blur(2px);
+html:has(.home-oval:hover, .settings-panel:hover, .modal:hover) .home-screen {
+  --home-bg-blur: 2px;
+  --home-figure-blur: 2.8px;
+  --home-snow-blur: 1px;
+}
+.home-board-bg {
+  filter: blur(var(--home-bg-blur));
+  transition: filter 0.35s ease;
 }
 #homeKnights {
-  filter: blur(2px);
+  filter: blur(var(--home-figure-blur));
   opacity: 0.65;
+  transition: filter 0.35s ease;
 }
 
 .home-snow-layer {
@@ -1216,7 +1226,8 @@ html:not([data-home-bg="snow"]) .loading-ring { display: none; }
   height: 100%;
   z-index: 1;
   pointer-events: none;
-  filter: blur(1px);
+  filter: blur(var(--home-snow-blur, 0.5px));
+  transition: filter 0.35s ease;
 }
 
 /* Снегопад идёт на тёмном фоне без клеток, чуть светлее за карточкой */
@@ -3018,7 +3029,6 @@ html.dark .achv-modal-overlay .achv-modal {
   filter: grayscale(1) brightness(0.8);
 }
 .achv-grid-container {
-  perspective: 1200px;
   overflow-y: auto;
   max-height: 70vh; /* или любая другая */
   scroll-behavior: smooth; /* опционально */

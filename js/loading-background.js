@@ -23,16 +23,12 @@ function computeHomeGrid(layer, bgSelector) {
   // больше видимой высоты (адресная строка), и фигуры уезжали бы с клеток.
   const bg = document.querySelector(bgSelector);
   if (bg) bg.style.setProperty('--cell', `${cellH}px`);
-  if (HOME_TOUCH_MEDIA.matches) {
-    // На портретном телефоне «не меньше 24 колонок» даёт клетки-полоски
-    // шириной ~16px. Там клетки квадратные и точно совпадают с фоном, а
-    // неполная клетка у правого края остаётся пустой.
-    const cols = Math.max(6, Math.floor(containerWidth / cellH));
-    return { rect, rows, cols, cellW: cellH, cellH };
-  }
-  const cols = Math.max(rows, Math.round(containerWidth / cellH));
-  const cellW = containerWidth / cols;
-  return { rect, rows, cols, cellW, cellH };
+  // Клетки фона в CSS квадратные (--cell), поэтому и фигуры ставим по
+  // квадратным клеткам. Если растянуть ширину клетки на весь экран, ошибка
+  // копится слева направо и у правого края фигуры съезжают с центра клеток.
+  // Неполная клетка у правого края остаётся пустой.
+  const cols = Math.max(6, Math.floor(containerWidth / cellH));
+  return { rect, rows, cols, cellW: cellH, cellH };
 }
 
 const HOME_SNOW_GLYPHS = '♚♛♜♝♞♟♞♟♟';

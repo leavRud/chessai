@@ -152,17 +152,28 @@ function applySpinEffect() {
     const DEAD_ZONE = 0.4;          // настройте под себя
     const MAX_ANGLE = 35;           // градусы
 
+    // Наклоняем только карточки у нижнего края — верхние остаются плоскими.
     let factor = 0;
-    if (Math.abs(clamped) > DEAD_ZONE) {
-      const rawFactor = (Math.abs(clamped) - DEAD_ZONE) / (1 - DEAD_ZONE);
-      factor = Math.sign(clamped) * (rawFactor * rawFactor); // плавный вход
+    if (clamped > DEAD_ZONE) {
+      const rawFactor = (clamped - DEAD_ZONE) / (1 - DEAD_ZONE);
+      factor = rawFactor * rawFactor; // плавный вход
     }
 
-    const angle = -factor * MAX_ANGLE;     // знак «минус» — чтобы наклонялись «наоборот»
-    const opacity = 1 - Math.abs(factor) * 0.35;
-    const scale = 1 - Math.abs(factor) * 0.03;
+    if (factor === 0) {
+      card.style.transform = '';
+      card.style.opacity = '';
+      return;
+    }
 
-    card.style.transform = `rotateX(${angle}deg) scale(${scale})`;
+    // Карточка «откидывается» назад вокруг своего верхнего края: верх стоит
+    // на месте, низ уходит вглубь — проекция только уменьшается и не наезжает
+    // на соседние карточки. Перспектива своя у каждой карточки, чтобы эффект
+    // не зависел от позиции прокрутки контейнера.
+    const angle = -factor * MAX_ANGLE;
+    const opacity = 1 - factor * 0.35;
+
+    card.style.transformOrigin = '50% 0';
+    card.style.transform = `perspective(900px) rotateX(${angle}deg)`;
     card.style.opacity = opacity;
   });
 }
