@@ -5,7 +5,8 @@
 let figureState = null;
 
 const HOME_FINGER_HOLD_MS = 1500;   // столько после касания кони слушаются пальца
-const HOME_AUTOPILOT_EVERY = 4;     // на автопилоте конь прыгает раз в 4 тика (200 мс)
+const HOME_KNIGHT_TICK_MS = 65;     // кони прыгают раз в тик; больше — спокойнее
+const HOME_AUTOPILOT_EVERY = 4;     // на автопилоте конь прыгает раз в 4 тика (260 мс)
 
 function initHomeFigures() {
   const layer = document.getElementById('homeKnights');
@@ -60,7 +61,7 @@ function initHomeFigures() {
   if (homeAnimationInterval) clearInterval(homeAnimationInterval);
   homeAnimationInterval = setInterval(() => {
     if (figureState) updateFigures();
-  }, 50);
+  }, HOME_KNIGHT_TICK_MS);
 
   window.addEventListener('mousemove', onHomeMouseMove);
   window.addEventListener('touchstart', onHomeTouch, { passive: true });

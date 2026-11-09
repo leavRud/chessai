@@ -1013,7 +1013,7 @@ html:not(.dark) img.piece-417db { filter: drop-shadow(0 1px 1.5px rgba(40, 25, 1
     linear-gradient(45deg, var(--home-cell-b) 25%, transparent 25%, transparent 75%, var(--home-cell-b) 75%);
   background-size: calc(var(--cell) * 2) calc(var(--cell) * 2);
   background-position: 0 0, var(--cell) var(--cell);
-  filter: blur(1px); /* как у главного экрана в покое */
+  filter: blur(1.4px); /* как у главного экрана в покое */
 }
 
 /* Снегопад идёт на том же фоне, что и на главном экране */
@@ -1200,9 +1200,9 @@ html:not([data-home-bg="snow"]) .loading-ring { display: none; }
 /* Фон главного экрана размыт слегка. Когда курсор на главном меню или на
    любом открытом окне, размытие возвращается к прежнему — фон уходит назад. */
 .home-screen {
-  --home-bg-blur: 1px;
-  --home-figure-blur: 1px;
-  --home-snow-blur: 0.5px;
+  --home-bg-blur: 1.4px;
+  --home-figure-blur: 1.5px;
+  --home-snow-blur: 0.7px;
 }
 html:has(.home-oval:hover, .settings-panel:hover, .modal:hover) .home-screen {
   --home-bg-blur: 2px;
@@ -1226,7 +1226,7 @@ html:has(.home-oval:hover, .settings-panel:hover, .modal:hover) .home-screen {
   height: 100%;
   z-index: 1;
   pointer-events: none;
-  filter: blur(var(--home-snow-blur, 0.5px));
+  filter: blur(var(--home-snow-blur, 0.7px));
   transition: filter 0.35s ease;
 }
 
@@ -3032,6 +3032,14 @@ html.dark .achv-modal-overlay .achv-modal {
   overflow-y: auto;
   max-height: 70vh; /* или любая другая */
   scroll-behavior: smooth; /* опционально */
+  /* Запас сверху: иначе контейнер прокрутки срезает верхнюю обводку первого ряда */
+  padding-top: 4px;
+}
+/* Наклоном карточек в списке управляет JS (applySpinEffect). Подъём при
+   наведении выталкивал карточку из ряда и прятал её верхнюю обводку под край
+   прокрутки — поэтому соседние карточки выглядели разными. */
+.achv-grid-container .achv-card:hover {
+  transform: none;
 }
 
 .achv-card {
