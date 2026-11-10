@@ -110,12 +110,20 @@ async function buildChatContextMessage(question) {
     const sf = await getStockfishContextForChat(fen, { wantAlternatives: asksForMove });
     sfBlock = formatStockfishContextBlock(fen, sf);
 
+    // «Мой последний ход» — ход игрока, а не последний ход партии: против
+    // Stockfish последним почти всегда ходит движок, и раньше нейросеть
+    // разбирала его ход как ход игрока. Вдвоём за доской — ход любой стороны.
     const history = game.history({ verbose: true });
-    const lastMove = history[history.length - 1];
-    if (lastMove && state.fenHistory.length >= 2) {
-      const beforeFen = state.fenHistory[state.fenHistory.length - 2];
+    let lastIndex = history.length - 1;
+    if (state.mode !== 'friend') {
+      while (lastIndex >= 0 && history[lastIndex].color !== state.playerColor) lastIndex--;
+    }
+    const lastMove = history[lastIndex];
+    if (lastMove && state.fenHistory[lastIndex + 1]) {
+      const beforeFen = state.fenHistory[lastIndex];
+      const afterFen = state.fenHistory[lastIndex + 1];
       const beforeEntry = analysisCache.get(beforeFen);
-      const afterEntry = analysisCache.get(fen);
+      const afterEntry = analysisCache.get(afterFen);
       const weak = state.settings.analysisMode === 'weak';
       const minDepth = weak ? ANALYSIS_TARGET.weakChatMinDepth : ANALYSIS_TARGET.chatMinDepth;
       if (!beforeEntry || beforeEntry.depth < minDepth) {
@@ -124,14 +132,25 @@ async function buildChatContextMessage(question) {
         enqueueAnalysisTask(beforeFen, PRIORITY.LAST_PLAYER_MOVE, minDepth);
       }
       const beforeAbs = scoreAbsoluteWhite(beforeEntry, beforeFen);
-      const afterAbs = scoreAbsoluteWhite(afterEntry, fen);
+      const afterAbs = scoreAbsoluteWhite(afterEntry, afterFen);
+      const moveNo = `${Math.floor(lastIndex / 2) + 1}.${lastMove.color === 'b' ? '..' : ''}`;
+      lastMoveLossBlock = `\nPLAYER'S LAST MOVE: ${moveNo}${lastMove.san} (${lastMove.color === 'w' ? 'белые' : 'чёрные'})`;
       if (beforeAbs != null && afterAbs != null) {
         const deltaAbs = afterAbs - beforeAbs;
         const loss = Math.max(0, lastMove.color === 'w' ? -deltaAbs : deltaAbs);
-        lastMoveLossBlock = `\nPLAYER'S LAST MOVE: ${lastMove.san}\nLAST MOVE LOSS: ${Math.round(loss)} CPL`;
+        lastMoveLossBlock += `\nLAST MOVE LOSS: ${Math.round(loss)} CPL`;
       }
+      const opponentReply = history[lastIndex + 1];
+      if (opponentReply) lastMoveLossBlock += `\nOPPONENT'S REPLY: ${opponentReply.san}`;
     }
   }
+
+  // Материал считаем сами: по одной FEN модель путается и называет лишнего
+  // слона «лишней пешкой».
+  const materialBlock = `\nMATERIAL: ${describeMaterial(game)}`;
+  const playerBlock = state.mode === 'friend'
+    ? ''
+    : `\nИгрок играет: ${state.playerColor === 'w' ? 'белыми' : 'чёрными'}`;
 
   if (asksForMove && !isCharacterMode) {
     const moves = game.moves();
@@ -140,9 +159,32 @@ async function buildChatContextMessage(question) {
   }
   return `CURRENT POSITION:
 FEN: ${fen}
-Сейчас ходят: ${sideLabel}
+Сейчас ходят: ${sideLabel}${playerBlock}${materialBlock}
 GAME HISTORY (PGN): ${pgn}${sfBlock}${lastMoveLossBlock}
 PLAYER QUESTION: ${question}${extra}`;
+}
+
+// «белые: Ф, 2Л, 2С, 1К, 8п; чёрные: …; перевес: чёрные +3 (лишний слон)»
+const MATERIAL_PIECES = [
+  ['q', 9, 'Ф', 'ферзь'], ['r', 5, 'Л', 'ладья'], ['b', 3, 'С', 'слон'], ['n', 3, 'К', 'конь'], ['p', 1, 'п', 'пешка'],
+];
+function describeMaterial(game) {
+  const count = { w: {}, b: {} };
+  for (const row of game.board()) {
+    for (const sq of row) if (sq) count[sq.color][sq.type] = (count[sq.color][sq.type] || 0) + 1;
+  }
+  const side = (c) => MATERIAL_PIECES.filter(([p]) => count[c][p]).map(([p, , short]) => `${count[c][p]}${short}`).join(' ') || '—';
+  const points = (c) => MATERIAL_PIECES.reduce((sum, [p, value]) => sum + (count[c][p] || 0) * value, 0);
+  const diff = points('w') - points('b');
+  // Каких фигур у отстающей стороны меньше — так модель видит «лишний слон», а не только +3
+  const extra = MATERIAL_PIECES
+    .map(([p, , , name]) => [name, (count.w[p] || 0) - (count.b[p] || 0)])
+    .filter(([, d]) => (diff > 0 ? d > 0 : d < 0))
+    .map(([name, d]) => `${Math.abs(d)} ${name}`);
+  const balance = diff === 0
+    ? 'равенство'
+    : `${diff > 0 ? 'белые' : 'чёрные'} +${Math.abs(diff)}${extra.length ? ` (лишние: ${extra.join(', ')})` : ''}`;
+  return `белые: ${side('w')}; чёрные: ${side('b')}; перевес: ${balance}`;
 }
 
 function trimHistory(history, maxEntries = 12) {

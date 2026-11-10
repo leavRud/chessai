@@ -467,6 +467,7 @@ function knownSideElo(color) {
 // силой оценка подтягивается к его рейтингу: одна короткая партия против
 // зевающего игрока не превращает новичка в гроссмейстера.
 const ELO_MIN_MOVES = 3;
+const ELO_MIN_RATED_MOVES = 10; // столько ходов игрока нужно, чтобы партия изменила рейтинг аккаунта
 const ELO_PRIOR_WEIGHT = 6;
 function estimateSideElo(items, prior) {
   const informative = items.filter(m => m.informative);
@@ -477,12 +478,21 @@ function estimateSideElo(items, prior) {
   return { elo, raw, moves: n };
 }
 
+// Сила игрока заранее не известна, но рейтинг аккаунта — лучшая догадка.
+// Без неё пять точных дебютных ходов давали «уровень ~2300», и рейтинг
+// прыгал на сотни очков даже за сданную партию.
+function playerRatingAnchor(color) {
+  if (state.mode === 'friend' || color !== state.playerColor) return null;
+  const acc = typeof getAccount === 'function' ? getAccount() : null;
+  return acc && Number.isFinite(acc.elo) ? acc.elo : null;
+}
+
 function sideStats(items, color) {
   const own = items.filter(m => m.move.color === color);
   const scored = own.filter(m => m.accuracy != null);
   const count = (cls) => own.filter(m => m.classification === cls).length;
   const prior = knownSideElo(color);
-  const est = estimateSideElo(own, prior);
+  const est = estimateSideElo(own, prior ?? playerRatingAnchor(color));
   return {
     moves: own.length,
     accuracy: scored.length ? avg(scored.map(m => m.accuracy)) : 0,
@@ -679,7 +689,10 @@ async function refineGameAnalysis(runId, fens, moves, weakPc, baseDepth, critica
         moveAnalysis: stats.moveAnalysis, evaluationsAbsoluteWhite,
       });
     }
-    updateAccountEloFromGame(state.playerColor === 'w' ? stats.eloWhite : stats.eloBlack);
+    // Рейтинг меняет только партия, где игрок сделал достаточно ходов до того,
+    // как всё решилось: иначе сдача после дебюта поднимала рейтинг.
+    const mine = state.playerColor === 'w' ? stats.white : stats.black;
+    if (mine.eloMoves >= ELO_MIN_RATED_MOVES) updateAccountEloFromGame(mine.elo);
   } catch (error) {
     console.error('Ошибка фонового уточнения анализа:', error);
   }
