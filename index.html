@@ -386,19 +386,22 @@
 
 <!-- ============ МОДАЛКА: ИТОГ ПАРТИИ ============ -->
 <div id="resultModal" class="modal-overlay hidden">
-  <div class="modal neumorphic-raised wide">
-    <span id="resultEyebrow" class="result-eyebrow"></span>
-    <h2 id="resultTitle">Игра окончена</h2>
-    <p id="resultText" class="modal-sub"></p>
+  <!-- На широком экране с разбором — две колонки: итог слева, разбор справа -->
+  <div class="modal neumorphic-raised wide result-modal">
+    <div class="result-main">
+      <span id="resultEyebrow" class="result-eyebrow"></span>
+      <h2 id="resultTitle">Игра окончена</h2>
+      <p id="resultText" class="modal-sub"></p>
 
-    <div class="result-stats">
-      <div class="result-stat"><b id="resultStatMoves">0</b><span>ходов</span></div>
-      <div class="result-stat"><b id="resultStatTime">00:00</b><span>длилась партия</span></div>
-      <div class="result-stat"><b id="resultStatCaptured">0</b><span>фигур вы взяли</span></div>
-    </div>
+      <div class="result-stats">
+        <div class="result-stat"><b id="resultStatMoves">0</b><span>ходов</span></div>
+        <div class="result-stat"><b id="resultStatTime">00:00</b><span>длилась партия</span></div>
+        <div class="result-stat"><b id="resultStatCaptured">0</b><span>фигур вы взяли</span></div>
+      </div>
 
-    <div id="characterResultBlock" class="character-result-block hidden">
-      <div id="characterResultContent"></div>
+      <div id="characterResultBlock" class="character-result-block hidden">
+        <div id="characterResultContent"></div>
+      </div>
     </div>
 
     <div id="analysisBlock" class="analysis-block hidden">

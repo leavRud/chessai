@@ -933,33 +933,70 @@ html:not(.dark) img.piece-417db { filter: drop-shadow(0 1px 1.5px rgba(40, 25, 1
   margin-top: 4px;
 }
 
+/* ---- Карточки «лучший ход / главная ошибка» ----
+   Раскладка зависит от ширины, доступной разбору (container query), а не от
+   экрана: в узком окне и в правой колонке широкого — одна под другой, где
+   просторно — рядом. Совсем узкая карточка уносит ход под подпись. */
+.analysis-content { container-type: inline-size; }
+.move-cards { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@container (min-width: 520px) {
+  .move-cards:has(> :nth-child(2)) { grid-template-columns: 1fr 1fr; }
+}
 .move-card {
-  display: flex;
-  justify-content: space-between;
+  --mc: 60, 170, 90;
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "icon text san";
   align-items: center;
-  gap: 12px;
+  column-gap: 12px;
   width: 100%;
-  padding: 10px 14px;
+  min-width: 0;
+  padding: 12px 14px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  box-shadow: var(--sd-sm);
-  border: 1px solid transparent;
-  transition: transform 0.15s ease;
+  border: 1px solid rgba(var(--mc), 0.32);
+  background: rgba(var(--mc), 0.12);
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   font: inherit;
   color: var(--text);
   text-align: left;
 }
-.move-card-text { display: flex; flex-direction: column; gap: 1px; }
-.move-card-text > span { font-size: 13px; color: var(--text); font-weight: 600; }
-.move-card-text small { font-size: 11.5px; color: var(--text-muted); }
-.move-card:hover { transform: translateY(-2px); }
-.move-card-best  { background: rgba(60, 170, 90, 0.14);  border-color: rgba(60, 170, 90, 0.35); }
-.move-card-worst { background: rgba(220, 60, 60, 0.12); border-color: rgba(220, 60, 60, 0.32); }
-.move-card-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); }
-.move-card-label .achv-icon { width: 16px; height: 16px; }
-.move-card-best .achv-icon { color: rgb(60, 170, 90); }
-.move-card-worst .achv-icon { color: rgb(220, 60, 60); }
-.move-card-san   { font-weight: 700; font-size: 15px; }
+.move-card-worst { --mc: 220, 60, 60; }
+.move-card:hover, .move-card:focus-visible {
+  background: rgba(var(--mc), 0.2);
+  border-color: rgba(var(--mc), 0.6);
+  box-shadow: 0 8px 22px -12px rgba(var(--mc), 0.7);
+}
+.move-card-icon {
+  grid-area: icon;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(var(--mc), 0.18);
+  color: rgb(var(--mc));
+}
+.move-card-icon .achv-icon { width: 18px; height: 18px; }
+.move-card-text { grid-area: text; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.move-card-text > span { font-size: 13.5px; color: var(--text); font-weight: 700; }
+.move-card-text small { font-size: 12px; color: var(--text-muted); }
+.move-card-san {
+  grid-area: san;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-weight: 800;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.move-card-san small { font-size: 12.5px; font-weight: 600; color: var(--text-muted); }
+@container (max-width: 250px) {
+  .move-card { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "icon text" "icon san"; row-gap: 4px; }
+  .move-card-san { font-size: 16px; }
+}
 
 .mini-board { width: 240px; max-width: 100%; margin: 0 auto 16px; }
 
@@ -2033,6 +2070,12 @@ html.dark .settings-panel { background: rgba(10, 10, 10, 0.78); }
   .md-tiles { grid-template-columns: 1fr 1fr; }
   .md-tile-best { grid-column: 1 / -1; }
   .move-detail-san b { font-size: 22px; }
+}
+
+/* Невысокий экран ПК (1366×768, 1024×600): доска по высоте окна, чтобы
+   объяснение нейросети справа не уводило окно в прокрутку */
+@media (min-width: 721px) and (max-height: 820px) {
+  .move-detail-layout { grid-template-columns: minmax(220px, min(400px, calc(100vh - 230px))) minmax(0, 1fr); }
 }
 
 /* Телефон: доска раньше занимала весь экран, и вердикт с объяснением
@@ -3456,6 +3499,58 @@ html.dark .btn-primary.btn-primary-active { color: #1a1408; }
 .modal.wide .result-actions { flex-wrap: wrap; }
 .modal.wide .result-actions #requestAnalysisBtn { flex: 1 1 100%; }
 .modal.wide .result-actions .btn-ghost { flex: 1 1 0; }
+
+/* Итог партии с разбором на широком окне ПК: две колонки — слева итог и
+   кнопки, справа разбор. Одной колонкой окно выходило ~860 px в высоту и на
+   мониторах 1366×768 / 1280×720 уходило в прокрутку, а на широких выглядело
+   узкой полосой посреди пустого экрана. */
+@media (min-width: 900px) {
+  .result-modal:has(#analysisBlock:not(.hidden)) {
+    max-width: min(980px, 94vw);
+    display: grid;
+    grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "main analysis" "actions analysis";
+    column-gap: 30px;
+    align-items: start;
+    padding-bottom: 30px;
+  }
+  .result-modal:has(#analysisBlock:not(.hidden)) > .result-main { grid-area: main; }
+  .result-modal:has(#analysisBlock:not(.hidden)) > #analysisBlock {
+    grid-area: analysis;
+    margin-bottom: 0;
+    padding-left: 30px;
+    border-left: 1px solid color-mix(in srgb, var(--text-muted) 18%, transparent);
+    align-self: stretch;
+  }
+  .result-modal:has(#analysisBlock:not(.hidden)) > .result-actions {
+    grid-area: actions;
+    align-self: end;
+    position: static;
+    padding-bottom: 0;
+    box-shadow: none;
+  }
+  .result-modal:has(#analysisBlock:not(.hidden)) .result-stats { margin-bottom: 0; }
+  .result-modal:has(#analysisBlock:not(.hidden)) .character-result-block { margin: 18px 0 0; }
+}
+
+/* Окно браузера на полэкрана (600–899 px): колонка одна, но шире —
+   карточки лучшего и худшего хода встают рядом, окно становится ниже. */
+@media (min-width: 600px) and (max-width: 899px) {
+  .result-modal:has(#analysisBlock:not(.hidden)) { max-width: min(680px, 94vw); }
+}
+
+/* Невысокое окно (ноутбук 1366×768, окно браузера не на весь экран):
+   плотнее поля и цифры, чтобы итог помещался без прокрутки */
+@media (max-height: 820px) and (min-width: 600px) {
+  .result-modal { padding-top: 24px; }
+  .result-modal h2 { font-size: 22px; margin-bottom: 4px; }
+  .result-modal .modal-sub { margin-bottom: 14px; }
+  .result-modal .result-stat { padding: 9px 12px; }
+  .result-modal .result-stat b { font-size: 19px; }
+  .result-modal .ac-row { padding-top: 6px; padding-bottom: 6px; }
+  .result-modal .move-card { padding: 10px 12px; }
+}
 
 /* =========================================================================
    Подвал главной (тарифы, оферта, реквизиты) и согласие в окне входа

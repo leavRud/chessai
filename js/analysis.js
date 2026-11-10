@@ -420,7 +420,7 @@ async function openMoveDetail(fenBefore, san, label = null) {
 
 Объясни человеческим языком, почему ход ${san} получил такую оценку: что он делает, какие угрозы создаёт или пропускает${bestSan && bestSan !== san ? `, и чем лучше ${bestSan}` : ''}. Не называй других «лучших ходов», кроме хода Stockfish. 2-3 предложения ${AI_LANGUAGE}, простым текстом, без markdown.
 `;
-    const reply = await provodChat([{ role: 'user', content: prompt }], { temperature: 0.4 });
+    const reply = await provodChat([{ role: 'user', content: prompt }], { temperature: 0.4, fast: true });
     if (token !== moveDetailToken) return;
     commentEl.textContent = stripMarkdown(reply) || t('Не удалось получить комментарий.');
   } catch (error) {
@@ -671,7 +671,7 @@ async function refineGameAnalysis(runId, fens, moves, weakPc, baseDepth, critica
 Лучший ход игрока: ${stats.bestMoveObj ? stats.bestMoveObj.move.san : '—'}.
 Главная ошибка игрока: ${stats.worstMoveObj ? stats.worstMoveObj.move.san : '—'}.
 Дай короткий (2-3 предложения) комментарий о партии ${AI_LANGUAGE} простым текстом, без markdown-разметки.`;
-      const raw = await provodChat([{ role: 'user', content: prompt }], { temperature: 0.4 });
+      const raw = await provodChat([{ role: 'user', content: prompt }], { temperature: 0.4, fast: true });
       comment = stripMarkdown(raw) || comment;
     } catch (e) {
       console.error('Ошибка комментария ИИ:', e);
@@ -721,10 +721,9 @@ function moveCardHtml(kind, item) {
     ? t('{label} · шансы {win}%', { label: t(MOVE_CLASS_LABELS[verdict] || 'Хороший ход'), win: Math.round(item.winAfter) })
     : t('{label} · шансы {delta}%', { label: t(MOVE_CLASS_LABELS[verdict] || 'Неточность'), delta: `${winDelta > 0 ? '+' : '−'}${Math.abs(winDelta)}` });
   return `<button type="button" class="move-card move-card-${kind}" data-fen="${escapeHtml(item.fenBefore)}" data-san="${escapeHtml(item.move.san)}">
-    <span class="move-card-label">${achievementIconSvg(kind === 'best' ? 'circle-check' : 'circle-x')}
-      <span class="move-card-text"><span>${title}</span><small>${escapeHtml(detail)}</small></span>
-    </span>
-    <span class="move-card-san">${moveNumberLabel(item)} ${escapeHtml(item.move.san)}</span>
+    <span class="move-card-icon">${achievementIconSvg(kind === 'best' ? 'circle-check' : 'circle-x')}</span>
+    <span class="move-card-text"><span>${title}</span><small>${escapeHtml(detail)}</small></span>
+    <span class="move-card-san"><small>${moveNumberLabel(item)}</small>${escapeHtml(item.move.san)}</span>
   </button>`;
 }
 
@@ -746,8 +745,9 @@ function renderAnalysis(stats, totalPly, comment, { refining = false } = {}) {
     <div class="ac-row"><span>${t('Неточности · ошибки · зевки')}</span><b>${triple(A)}</b><b>${triple(B)}</b></div>
   </div>`;
 
-  if (stats.bestMoveObj) html += moveCardHtml('best', stats.bestMoveObj);
-  if (stats.worstMoveObj) html += moveCardHtml('worst', stats.worstMoveObj);
+  if (stats.bestMoveObj || stats.worstMoveObj) {
+    html += `<div class="move-cards">${stats.bestMoveObj ? moveCardHtml('best', stats.bestMoveObj) : ''}${stats.worstMoveObj ? moveCardHtml('worst', stats.worstMoveObj) : ''}</div>`;
+  }
 
   html += `<p class="analysis-comment">${escapeHtml(comment)}</p>`;
   if (refining) {

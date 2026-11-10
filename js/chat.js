@@ -320,9 +320,10 @@ async function handleAsk() {
       ...trimHistory(state.chatApiHistory)
     ];
     const isCharacterChat = state.mode === 'characters' && !!state.character;
-    // Персонажу нужна живость, а не точность ассистента: температура повыше и быстрая модель.
+    // Все ответы — на быстрой модели: «рассуждающая» основная тратила до 2000
+    // скрытых токенов и отвечала до минуты. Персонажу ещё и температура повыше.
     const temperature = isCharacterChat ? 0.95 : state.settings.temperature / 10;
-    const reply = await provodChat(messages, { temperature, fast: isCharacterChat });
+    const reply = await provodChat(messages, { temperature, fast: true });
     const cleanReply = stripMarkdown(reply);
     state.chatApiHistory.push({ role: 'assistant', content: reply });
     const isCharacterReply = state.mode === 'characters' && state.character;
