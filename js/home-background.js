@@ -454,7 +454,8 @@ function updateFiguresAutopilot() {
 }
 
 /* ---- Фигурный снегопад на главном экране ---- */
-const HOME_SNOW_CATCH_RADIUS = 46;  // насколько точно надо попасть по фигуре
+const HOME_SNOW_CATCH_RADIUS = 46;  // насколько точно надо попасть по ближней фигуре
+const HOME_SNOW_MIN_CATCH_RADIUS = 24; // дальнюю мелкую тоже можно поймать пальцем
 const HOME_SNOW_VANISH_MS = 520;    // сколько длится исчезновение пойманной фигуры
 const HOME_SNOW_MAX_WIND = 280;     // px/с: сильнее ветер не разгоняется
 const HOME_SNOW_GRAVITY = 240;      // px/с²: подброшенная ветром фигура падает обратно по дуге
@@ -572,18 +573,21 @@ function onHomeSnowTouchEnd() {
   if (homeSnow) homeSnow.pointer = null;
 }
 
-// Тап/клик по фону ловит ближайшую крупную фигуру — она тает на месте
+// Тап/клик по фону ловит фигуру под пальцем — она тает на месте. Ловятся и
+// дальние мелкие фигуры: зона попадания у них меньше (по размеру глифа), но
+// не меньше подушечки пальца. Из нескольких фигур под пальцем берём ту, в
+// которую попали точнее относительно её размера.
 function onHomeSnowPointerDown(e) {
   if (!homeSnow) return;
   if (!e.target.closest('#homeScreen') || e.target.closest('button, a, input, .home-oval')) return;
   const p = homeSnowLocalPoint(e);
   let best = null;
-  let bestDist = HOME_SNOW_CATCH_RADIUS * homeSnow.scale;
+  let bestScore = 1;
   for (const flake of homeSnow.flakes) {
-    if (flake.z < 0.45) continue;
-    const dist = Math.hypot(flake.x - p.x, flake.y - p.y);
-    if (dist < bestDist) {
-      bestDist = dist;
+    const radius = Math.max(HOME_SNOW_MIN_CATCH_RADIUS, HOME_SNOW_CATCH_RADIUS * (0.4 + flake.z * 0.6)) * homeSnow.scale;
+    const score = Math.hypot(flake.x - p.x, flake.y - p.y) / radius;
+    if (score < bestScore) {
+      bestScore = score;
       best = flake;
     }
   }

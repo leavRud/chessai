@@ -43,6 +43,12 @@ function initMenuPanel() {
     });
   });
 
+  // «Вопросы» в подвале главной открывают FAQ в боковой панели; по ссылке
+  // chesai.ru/#faq он открывается сразу
+  const openFaq = () => { openSidePanel(); navigateTo('faq'); };
+  $id('homeFaqLink')?.addEventListener('click', (e) => { e.preventDefault(); openFaq(); });
+  if (location.hash === '#faq') openFaq();
+
   const authBtn = $id('menuAuthBtn');
   if (authBtn) authBtn.addEventListener('click', () => { closeSidePanel(); openAuthModal(); });
 

@@ -31,6 +31,31 @@ function closeSettingsPanel() {
   if (typeof getCurrentView === 'function' && getCurrentView() === 'settings') navigateBack();
 }
 
+const HOME_KNIGHT_SRC = {
+  gold: 'assests/knight.webp',
+  maroon: 'assests/knight-red.webp',
+  blue: 'assests/knight-blue.webp',
+  green: 'assests/knight-green.webp',
+};
+
+// Конь другого цвета грузится только при смене акцента — и меняется с
+// задержкой, пока качается картинка. Поэтому все цвета подгружаем и
+// декодируем заранее; ссылки держим, чтобы браузер их не выбросил.
+const homeKnightPreloaded = [];
+function preloadHomeKnights() {
+  if (homeKnightPreloaded.length) return;
+  for (const src of Object.values(HOME_KNIGHT_SRC)) {
+    const img = new Image();
+    img.src = src;
+    if (img.decode) img.decode().catch(() => {});
+    homeKnightPreloaded.push(img);
+  }
+}
+window.addEventListener('load', () => {
+  const idle = window.requestIdleCallback || (cb => setTimeout(cb, 1500));
+  idle(preloadHomeKnights);
+}, { once: true });
+
 function applyAccent(name) {
   document.documentElement.setAttribute('data-accent', name);
   localStorage.setItem('chessAccent', name);
@@ -40,15 +65,7 @@ function applyAccent(name) {
     el.classList.toggle('is-active', el.dataset.accent === name);
   });
   const knightImg = $id('homeKnightImg');
-  if (knightImg) {
-    const knightSrcMap = {
-      gold: 'assests/knight.webp',
-      maroon: 'assests/knight-red.webp',
-      blue: 'assests/knight-blue.webp',
-      green: 'assests/knight-green.webp',
-    };
-    knightImg.src = knightSrcMap[name] || 'assests/knight.webp';
-  }
+  if (knightImg) knightImg.src = HOME_KNIGHT_SRC[name] || HOME_KNIGHT_SRC.gold;
 }
 
 function applyBoardStyle(name) {

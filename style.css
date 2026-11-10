@@ -614,20 +614,6 @@ html:not(.dark) img.piece-417db { filter: drop-shadow(0 1px 1.5px rgba(40, 25, 1
 /* =========================================================================
    Режим «Против персонажей»
    ========================================================================= */
-.beta-tag {
-  display: inline-block;
-  font-family: var(--font-body);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  background: var(--bg-alt);
-  box-shadow: var(--inset-sm);
-  padding: 3px 8px;
-  border-radius: 999px;
-  vertical-align: middle;
-  margin-left: 8px;
-}
 .character-modal { max-width: 560px; }
 
 .char-tabs {
@@ -2362,7 +2348,15 @@ html.dark .achv-modal-overlay .achv-modal {
 .menu-icon-btn:active svg { transform: scale(0.9); }
 
 .menu-header { justify-content: flex-start; gap: 14px; }
-.menu-back-btn { font-size: 18px; }
+.menu-back-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .side-panel-title { margin: 0; font-size: 18px; }
 
 .menu-body { padding-top: 4px; }
@@ -2613,6 +2607,49 @@ html.dark .achv-modal-overlay .achv-modal {
   transition: color 0.15s ease;
 }
 .about-link-row:last-child { border-bottom: none; }
+
+/* ---- Частые вопросы: аккордеон на <details>, текст есть в разметке для поисковиков ---- */
+.faq-list { display: flex; flex-direction: column; gap: 8px; }
+.faq-item {
+  border-radius: var(--radius-sm);
+  background: rgba(244, 239, 228, 0.05);
+  border: 1px solid rgba(244, 239, 228, 0.06);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.faq-item[open] { background: rgba(244, 239, 228, 0.07); border-color: rgba(244, 239, 228, 0.12); }
+.faq-item summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px;
+  font-size: 13.5px; font-weight: 600; color: #F4EFE4;
+  cursor: pointer; list-style: none;
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after {
+  content: '';
+  flex: none;
+  width: 7px; height: 7px;
+  border-right: 2px solid rgba(244, 239, 228, 0.45);
+  border-bottom: 2px solid rgba(244, 239, 228, 0.45);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.2s ease;
+}
+.faq-item[open] summary::after { transform: translateY(2px) rotate(-135deg); }
+.faq-item summary:hover { color: var(--gold); }
+.faq-item p {
+  margin: 0; padding: 0 14px 14px;
+  font-size: 12.5px; line-height: 1.6; color: rgba(244, 239, 228, 0.75);
+}
+
+/* Видно поисковикам и экранным дикторам, но не на экране */
+.sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 .about-link-row:hover { color: var(--gold); }
 .about-link-arrow { color: rgba(244, 239, 228, 0.4); }
 
@@ -3059,7 +3096,49 @@ html.dark .achv-modal-overlay .achv-modal {
     color-mix(in srgb, var(--achv-tier) 11%, transparent));
   box-shadow: 0 0 22px -12px var(--achv-tier);
 }
-.achv-grid-container .achv-card.is-locked:is(.achv-tier-15, .achv-tier-50):hover { opacity: 1; }
+/* Наведение на топовую ачивку: обводка загорается полным цветом уровня,
+   отсвет становится ярче, а по карточке проходит блик. Двигать карточку
+   нельзя — край прокрутки срезает обводку (см. выше), поэтому только свет. */
+.achv-grid-container .achv-card:is(.achv-tier-15, .achv-tier-50) {
+  transition: opacity 0.2s ease, border-color 0.25s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+.achv-grid-container .achv-card:is(.achv-tier-15, .achv-tier-50)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(105deg,
+    transparent 38%,
+    color-mix(in srgb, var(--achv-tier) 26%, transparent) 50%,
+    transparent 62%) no-repeat;
+  background-size: 260% 100%;
+  background-position: 130% 0;
+  opacity: 0;
+}
+.achv-grid-container .achv-card:is(.achv-tier-15, .achv-tier-50):hover {
+  opacity: 1;
+  border-color: var(--achv-tier);
+  background: linear-gradient(160deg,
+    rgba(244, 239, 228, 0.06),
+    color-mix(in srgb, var(--achv-tier) 20%, transparent));
+  box-shadow: 0 0 28px -8px color-mix(in srgb, var(--achv-tier) 70%, transparent),
+              inset 0 0 18px -10px var(--achv-tier);
+}
+.achv-grid-container .achv-card:is(.achv-tier-15, .achv-tier-50):hover::after {
+  animation: achvTopSheen 0.9s ease-out forwards;
+}
+.achv-grid-container .achv-card:is(.achv-tier-15, .achv-tier-50):hover .achv-card-icon {
+  filter: drop-shadow(0 0 9px color-mix(in srgb, var(--achv-tier) 85%, transparent));
+}
+@keyframes achvTopSheen {
+  0%   { opacity: 1; background-position: 130% 0; }
+  80%  { opacity: 1; }
+  100% { opacity: 0; background-position: -30% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .achv-grid-container .achv-card:is(.achv-tier-15, .achv-tier-50):hover::after { animation: none; }
+}
 .achv-card.is-locked:is(.achv-tier-15, .achv-tier-50) .achv-card-icon {
   filter: drop-shadow(0 0 6px color-mix(in srgb, var(--achv-tier) 60%, transparent));
 }

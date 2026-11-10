@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>chesai — игра против нейросети</title>
+<title>Шахматы онлайн против нейросети и Stockfish — chesai</title>
 
 <!-- Поиск и превью ссылок в соцсетях/мессенджерах -->
 <meta name="description" content="Шахматы онлайн против Stockfish, вдвоём или против персонажей-нейросетей. ИИ-помощник объясняет ходы и позиции. Бесплатно, без установки." />
@@ -39,6 +39,23 @@
   "inLanguage": ["ru", "en"],
   "image": "https://chesai.ru/assests/og-image.jpg",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "RUB" }
+}
+</script>
+<!-- Тот же текст, что в разделе «Частые вопросы» (#view-faq) — менять вместе -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "Это бесплатно?", "acceptedAnswer": { "@type": "Answer", "text": "Да. Игра против Stockfish, игра вдвоём и разбор партии движком бесплатны и доступны без регистрации. После входа в аккаунт каждый день даётся 15 бесплатных вопросов ИИ-помощнику, дополнительные можно купить." } },
+    { "@type": "Question", "name": "Нужна ли регистрация?", "acceptedAnswer": { "@type": "Answer", "text": "Чтобы играть против Stockfish или с другом — нет. Вход через Google или VK нужен для игры против персонажей, вопросов ИИ-помощнику и сохранения рейтинга Elo." } },
+    { "@type": "Question", "name": "Насколько силён компьютер?", "acceptedAnswer": { "@type": "Answer", "text": "Соперник — Stockfish, один из сильнейших шахматных движков в мире. Перед партией выберите цвет фигур и один из трёх уровней: лёгкий, средний или сложный." } },
+    { "@type": "Question", "name": "Кто такие персонажи?", "acceptedAnswer": { "@type": "Answer", "text": "Соперники, которыми управляет нейросеть. У каждого свой характер и стиль игры: они комментируют партию и отвечают вам в чате. Можно выбрать готового персонажа или описать своего." } },
+    { "@type": "Question", "name": "Что умеет ИИ-помощник?", "acceptedAnswer": { "@type": "Answer", "text": "Объясняет ходы и позиции простым языком, отвечает на вопросы в чате рядом с доской и комментирует разбор партии." } },
+    { "@type": "Question", "name": "Можно разобрать сыгранную партию?", "acceptedAnswer": { "@type": "Answer", "text": "Да. После партии Stockfish проверяет каждый ход и отмечает ошибки, а ИИ-помощник объяснит любой ход подробнее." } },
+    { "@type": "Question", "name": "Можно сыграть с другом?", "acceptedAnswer": { "@type": "Answer", "text": "Да, в режиме «Против друга» вы ходите по очереди на одном устройстве." } },
+    { "@type": "Question", "name": "Работает на телефоне? Нужно что-то устанавливать?", "acceptedAnswer": { "@type": "Answer", "text": "chesai работает прямо в браузере на компьютере и телефоне. Устанавливать ничего не нужно, но сайт можно добавить на главный экран как приложение." } }
+  ]
 }
 </script>
 
@@ -132,13 +149,22 @@
         <span id="homeModePill" class="home-mode-pill" aria-hidden="true"></span>
         <button type="button" class="home-mode-btn is-active" data-mode="ai" aria-pressed="true">Против стокфиша</button>
         <button type="button" class="home-mode-btn" data-mode="friend" aria-pressed="false">Против друга</button>
-        <button type="button" class="home-mode-btn" data-mode="characters" aria-pressed="false">Против персонажей (Beta)</button>
+        <button type="button" class="home-mode-btn" data-mode="characters" aria-pressed="false">Против персонажей</button>
       </div>
     </div>
   </div>
 
+  <!-- Описание сервиса для поисковиков и экранных дикторов: на экране его
+       не видно, всё то же самое пользователь найдёт в «О приложении» и FAQ -->
+  <section class="sr-only" aria-labelledby="homeIntroTitle">
+    <h2 id="homeIntroTitle">Шахматы онлайн против нейросети</h2>
+    <p>chesai — бесплатные шахматы онлайн в браузере. Играйте против движка Stockfish на трёх уровнях сложности, вдвоём с другом на одном устройстве или против персонажей, которыми управляет нейросеть: у каждого свой характер и стиль игры.</p>
+    <p>ИИ-помощник объясняет ходы и позиции простым языком, а после партии Stockfish разбирает каждый ход и показывает ошибки. Рейтинг Elo, статистика и достижения сохраняются в аккаунте. Работает на компьютере и телефоне, без установки.</p>
+  </section>
+
   <footer class="home-footer">
     <nav class="home-footer-links" aria-label="Информация">
+      <a href="#faq" id="homeFaqLink">Вопросы</a>
       <a href="tarify.html">Тарифы</a>
       <a href="oferta.html">Оферта</a>
       <a href="privacy.html">Конфиденциальность</a>
@@ -294,7 +320,7 @@
 <!-- ============ МОДАЛКА: НАСТРОЙКА ПЕРСОНАЖА ============ -->
 <div id="characterSetupModal" class="modal-overlay hidden">
   <div class="modal neumorphic-raised wide character-modal">
-    <h2>Против персонажа <span class="beta-tag">Beta</span></h2>
+    <h2>Против персонажа</h2>
     <p class="modal-sub">Выберите готовое имя или опишите своего персонажа — нейросеть создаст его игровой профиль и стиль игры.</p>
 
     <div class="char-tabs" role="tablist">
@@ -583,7 +609,51 @@
           <span class="menu-nav-label">О приложении</span>
           <span class="menu-nav-arrow">›</span>
         </button>
+        <button type="button" class="menu-nav-item" data-menu-action="faq">
+          <span class="menu-nav-icon" data-icon="help-circle"></span>
+          <span class="menu-nav-label">Частые вопросы</span>
+          <span class="menu-nav-arrow">›</span>
+        </button>
 
+      </div>
+
+      <!-- ===================== VIEW: ЧАСТЫЕ ВОПРОСЫ =====================
+           Тот же текст продублирован в разметке FAQPage в <head> — менять вместе -->
+      <div id="view-faq" class="side-view">
+        <div class="faq-list">
+          <details class="faq-item">
+            <summary>Это бесплатно?</summary>
+            <p>Да. Игра против Stockfish, игра вдвоём и разбор партии движком бесплатны и доступны без регистрации. После входа в аккаунт каждый день даётся 15 бесплатных вопросов ИИ-помощнику, дополнительные можно купить.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Нужна ли регистрация?</summary>
+            <p>Чтобы играть против Stockfish или с другом — нет. Вход через Google или VK нужен для игры против персонажей, вопросов ИИ-помощнику и сохранения рейтинга Elo.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Насколько силён компьютер?</summary>
+            <p>Соперник — Stockfish, один из сильнейших шахматных движков в мире. Перед партией выберите цвет фигур и один из трёх уровней: лёгкий, средний или сложный.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Кто такие персонажи?</summary>
+            <p>Соперники, которыми управляет нейросеть. У каждого свой характер и стиль игры: они комментируют партию и отвечают вам в чате. Можно выбрать готового персонажа или описать своего.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Что умеет ИИ-помощник?</summary>
+            <p>Объясняет ходы и позиции простым языком, отвечает на вопросы в чате рядом с доской и комментирует разбор партии.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Можно разобрать сыгранную партию?</summary>
+            <p>Да. После партии Stockfish проверяет каждый ход и отмечает ошибки, а ИИ-помощник объяснит любой ход подробнее.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Можно сыграть с другом?</summary>
+            <p>Да, в режиме «Против друга» вы ходите по очереди на одном устройстве.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Работает на телефоне? Нужно что-то устанавливать?</summary>
+            <p>chesai работает прямо в браузере на компьютере и телефоне. Устанавливать ничего не нужно, но сайт можно добавить на главный экран как приложение.</p>
+          </details>
+        </div>
       </div>
 
       <!-- ===================== VIEW: ПРОФИЛЬ ===================== -->

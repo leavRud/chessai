@@ -11,7 +11,7 @@
    элемент стека. Экран, соответствующий текущему верхнему элементу стека,
    получает класс .is-active; все остальные .side-view скрыты (display:none).
    ========================================================================= */
-const SIDE_VIEWS = ['menu', 'profile', 'profile-edit', 'settings', 'achievements', 'stats', 'about'];
+const SIDE_VIEWS = ['menu', 'profile', 'profile-edit', 'settings', 'achievements', 'stats', 'about', 'faq'];
 const SIDE_VIEW_TITLES = {
   menu: '',
   profile: t('Профиль'),
@@ -20,9 +20,15 @@ const SIDE_VIEW_TITLES = {
   achievements: t('Достижения'),
   stats: t('Статистика'),
   about: t('О приложении'),
+  faq: t('Частые вопросы'),
 };
 
 const navigationState = { stack: ['menu'] };
+
+// Иконки рисуем линией одной толщины: текстовые «✕» и «←» в разных шрифтах
+// выходят разного размера и съезжают с центра кружка.
+const MENU_CLOSE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+const MENU_BACK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
 
 function getCurrentView() {
   return navigationState.stack[navigationState.stack.length - 1];
@@ -47,13 +53,13 @@ function renderSideView() {
   const backBtn = $id('menuBackBtn');
   if (backBtn) {
     const isRoot = navigationState.stack.length <= 1;
-    backBtn.textContent = isRoot ? '✕' : '←';
+    backBtn.innerHTML = isRoot ? MENU_CLOSE_ICON : MENU_BACK_ICON;
     backBtn.setAttribute('aria-label', isRoot ? t('Закрыть') : t('Назад'));
   }
 
   if (view === 'menu') renderMenuProfile();
   else if (view === 'profile') renderProfileView();
-  else if (view === 'settings') { syncAutoHintAvailability(); syncAnalysisModeLock(); }
+  else if (view === 'settings') { syncAutoHintAvailability(); syncAnalysisModeLock(); preloadHomeKnights(); }
   else if (view === 'achievements') renderAchievementsGrid();
   else if (view === 'stats') renderStatsView();
 }
