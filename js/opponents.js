@@ -227,6 +227,24 @@ async function requestCharacterMove() {
   updateStatus();
 
   const fen = state.game.fen();
+
+  // Пока партия идёт по его защите — ходит по книге, а не по движку: так
+  // дебют совпадает с тем, что написано в карточке персонажа.
+  const bookSan = pickBookMove(state.character, state.game);
+  if (bookSan) {
+    await new Promise(r => setTimeout(r, 450 + Math.random() * 500)); // «подумал»
+    const bookMove = !state.isGameOver && state.game.fen() === fen ? state.game.move(bookSan, { sloppy: true }) : null;
+    if (bookMove) {
+      state.lastMoveFlavor = null;
+      state.fenHistory.push(state.game.fen());
+      onMoveMade(bookMove, false);
+      state.isThinking = false;
+      setThinkingUI(false);
+      updateStatus();
+      return;
+    }
+  }
+
   const movetime = movetimeForSkill(state.skillLevel);
   showEngineLoadingStatus();
   await waitForEngine(3000);

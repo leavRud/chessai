@@ -155,7 +155,7 @@ function buildCharacterGenSystemPrompt() {
   "name": "имя персонажа",
   "shortDescription": "одно короткое предложение о персонаже",
   "style": "1-2 предложения о стиле игры в шахматы",
-  "openings": "предпочитаемые дебюты, коротко",
+  "defenses": ["id защиты против 1.e4", "id защиты против 1.d4"],
   "aggression": число 0-100,
   "combination": число 0-100,
   "sacrifice": число 0-100,
@@ -180,7 +180,19 @@ function buildCharacterGenSystemPrompt() {
   - 1500–1900: сильный любитель, разряд, играет в турнирах;
   - 1900–2300: кандидат в мастера и мастер;
   - 2300–2850: профессиональные шахматисты, гроссмейстеры.
-  Если это реальный шахматист — бери его настоящий рейтинг. Если о шахматах персонажа ничего не известно — ставь 600–1100, даже если он гений в другой области. Выше 1500 — только если игра в шахматы прямо известна о персонаже или указана в описании.`;
+  Если это реальный шахматист — бери его настоящий рейтинг. Если о шахматах персонажа ничего не известно — ставь 600–1100, даже если он гений в другой области. Выше 1500 — только если игра в шахматы прямо известна о персонаже или указана в описании.
+  Учитывай и экранизации, сериалы, игры: если там персонаж играет в шахматы на высоком уровне (Шерлок Холмс против Мориарти, Спок, Бет Хармон), это и есть его сила — ставь 1900–2500 по тому, как сильно он играет.
+
+  Персонаж всегда играет чёрными. В "defenses" выбери ровно две защиты под его характер — одну против 1.e4 и одну против 1.d4 — только id из списка:
+  против 1.e4: ${openingIdsAgainst('e4')};
+  против 1.d4: ${openingIdsAgainst('d4')}.`;
+}
+
+function openingIdsAgainst(move) {
+  return Object.entries(OPENING_BOOK)
+    .filter(([, opening]) => opening.against === move)
+    .map(([id, opening]) => `${id} (${opening.name.ru})`)
+    .join(', ');
 }
 
 function extractJson(text) {
@@ -198,11 +210,14 @@ function normalizeCharacterProfile(p, input) {
   };
   const fallbackName = input.type === 'name' ? input.value : t('Загадочный соперник');
   const name = String(p.name || fallbackName).trim().slice(0, 40) || fallbackName;
+  // Карточка показывает ровно те защиты, которые персонаж разыгрывает по книге
+  const defenses = resolveCharacterDefenses(p.defenses, p.openings);
   return {
+    defenses,
     name,
     shortDescription: String(p.shortDescription || '').trim().slice(0, 180) || t('Загадочный противник со своим стилем игры.'),
     style: String(p.style || '').trim().slice(0, 320) || t('Играет непредсказуемо, полагаясь на интуицию.'),
-    openings: String(p.openings || '').trim().slice(0, 160) || t('Разные дебюты.'),
+    openings: describeCharacterDefenses(defenses),
     aggression: clampNum(p.aggression, 0, 100, 50),
     combination: clampNum(p.combination, 0, 100, 50),
     sacrifice: clampNum(p.sacrifice, 0, 100, 30),

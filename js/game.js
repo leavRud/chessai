@@ -389,9 +389,11 @@ function appendLastMoveRow() {
   scrollMoveListToEnd();
 }
 
+// Разбор хода открывается только после партии: во время игры он показывал бы
+// оценку Stockfish и лучший ход — по сути подсказку.
 document.getElementById('moveList').addEventListener('click', function (e) {
   const row = e.target.closest('.move-row');
-  if (!row) return;
+  if (!row || (state.game && !state.isGameOver)) return;
   const fen = row.dataset.fen;
   const san = row.dataset.san;
   if (fen && san) openMoveDetail(fen, san);
@@ -426,6 +428,7 @@ function updateStatus() {
 
 function updateResignButtonLabel() {
   const btn = $id('resignBtn');
+  $id('moveList').classList.toggle('is-reviewable', !!state.isGameOver);
   if (state.isGameOver) { btn.disabled = true; return; }
   btn.disabled = false;
   if (state.mode === 'friend') {
@@ -475,6 +478,7 @@ function checkGameOver() {
   if (!game.game_over()) return false;
   stopTimer();
   state.isGameOver = true;
+  updateResignButtonLabel();
   let text;
   let outcome = 'draw';
   let reason = 'draw';

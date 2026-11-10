@@ -162,6 +162,7 @@ const I18N_EN = {
   "Осторожность": "Caution",
   "Эндшпиль": "Endgame",
   "Дебюты: {openings}": "Openings: {openings}",
+  "на 1.e4 — {e4}; на 1.d4 — {d4}": "vs 1.e4: {e4}; vs 1.d4: {d4}",
   "Персонаж обдумывает партию…": "The character is thinking over the game…",
   "Любимый момент": "Favorite moment",
   "Момент, который запомнится надолго.": "A moment to remember.",

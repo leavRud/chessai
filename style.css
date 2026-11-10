@@ -424,10 +424,11 @@ html:not(.dark) img.piece-417db { filter: drop-shadow(0 1px 1.5px rgba(40, 25, 1
   padding: 4px 8px;
   border-radius: 8px;
   font-size: 13.5px;
-  cursor: pointer;
   transition: background 0.15s;
 }
-.move-row:hover {
+/* Ходы кликабельны (разбор хода) только после партии */
+.move-list.is-reviewable .move-row { cursor: pointer; }
+.move-list.is-reviewable .move-row:hover {
   background: var(--accent-soft);
 }
 .move-row:nth-child(odd) { background: rgba(0,0,0,0.02); }
@@ -2032,6 +2033,26 @@ html.dark .settings-panel { background: rgba(10, 10, 10, 0.78); }
   .md-tiles { grid-template-columns: 1fr 1fr; }
   .md-tile-best { grid-column: 1 / -1; }
   .move-detail-san b { font-size: 22px; }
+}
+
+/* Телефон: доска раньше занимала весь экран, и вердикт с объяснением
+   нейросети уходили за край. Сжимаем поля и доску, полосу прокрутки прячем —
+   на телефоне листают пальцем. */
+@media (max-width: 480px) {
+  #moveDetailModal { padding: 10px; }
+  .achv-modal-overlay .achv-modal.move-detail-modal {
+    width: 100%;
+    max-height: calc(100dvh - 20px);
+    padding: 16px 14px 18px;
+    scrollbar-width: none;
+  }
+  .achv-modal-overlay .achv-modal.move-detail-modal::-webkit-scrollbar { display: none; }
+  .move-detail-modal .achv-modal-header h2 { font-size: 20px; }
+  .move-detail-layout { margin-top: 10px; gap: 12px; }
+  .move-detail-board-col { max-width: min(280px, 100%); gap: 8px; }
+  .move-detail-info { gap: 10px; }
+  .md-verdict { padding: 10px 12px; }
+  .move-detail-info .md-comment { padding: 12px 14px; font-size: 13.5px; }
 }
 
 /* ---- Загрузчик с конём: конь прыгает, кольцо крутится или заполняется ---- */
