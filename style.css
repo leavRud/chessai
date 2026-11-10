@@ -1452,7 +1452,7 @@ html:has(.home-oval:hover, .settings-panel:hover, .modal:hover) .home-screen {
 .home-mode-pill {
   position: absolute;
   left: 0;
-  right: 0;
+  width: 100%;
   border-radius: 40px;
   background: var(--bg-alt);
   box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
@@ -1862,6 +1862,21 @@ html.dark .settings-panel { background: rgba(10, 10, 10, 0.78); }
   .home-oval::after {
     display: none;   /* на малых экранах отблески убираем */
   }
+}
+
+/* Планшеты и окно браузера на пол-экрана (600–880px): узкая капсула в 480px
+   оставляла по бокам пустые поля. Делаем её шире и крупнее, режимы — в ряд. */
+@media (min-width: 600px) and (max-width: 880px) and (min-height: 561px) {
+  .home-oval {
+    max-width: 660px;
+    padding: 28px 32px 32px;
+    gap: 20px;
+    border-radius: 96px;
+  }
+  .home-knight-wrap { width: 160px; height: 150px; margin-bottom: -28px; }
+  .home-play-text { font-size: 48px; }
+  .home-mode-select { flex-direction: row; flex-wrap: nowrap; gap: 8px; }
+  .home-mode-btn { font-size: 14px; padding: 9px 18px; white-space: nowrap; }
 }
 
 /* Короткие/альбомные экраны (мобильные в landscape, невысокие окна браузера) —
@@ -3508,6 +3523,52 @@ html.dark .btn-primary.btn-primary-active { color: #1a1408; }
 }
 .result-stat b { font-size: 22px; font-variant-numeric: tabular-nums; }
 .result-stat span { font-size: 12px; color: var(--text-muted); }
+
+/* PGN под цифрами итога: скромные ссылки, чтобы не спорить с кнопками внизу */
+.result-pgn-row { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: -10px 0 20px; }
+.result-pgn-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 0; border: none; background: transparent; cursor: pointer;
+  color: var(--text-muted); font-size: 13px; font-weight: 600;
+  transition: color 0.15s ease;
+}
+.result-pgn-btn:hover { color: var(--accent); }
+.result-pgn-btn .achv-icon { width: 16px; height: 16px; }
+
+/* ---- Мои партии ---- */
+.games-note { margin: 0 0 14px; font-size: 13px; line-height: 1.45; color: rgba(244, 239, 228, 0.6); }
+.games-list { display: flex; flex-direction: column; gap: 10px; }
+.game-item {
+  padding: 14px 14px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(244, 239, 228, 0.05);
+  border: 1px solid rgba(244, 239, 228, 0.08);
+}
+.game-item-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.game-item-title { color: #F4EFE4; font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game-badge {
+  flex-shrink: 0; padding: 3px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+}
+.game-badge--win { background: rgba(76, 175, 106, 0.18); color: #7fd69a; }
+.game-badge--loss { background: rgba(161, 69, 61, 0.25); color: #e58d84; }
+.game-badge--draw, .game-badge--neutral { background: rgba(244, 239, 228, 0.1); color: rgba(244, 239, 228, 0.75); }
+.game-item-meta { margin: 6px 0 12px; font-size: 12.5px; color: rgba(244, 239, 228, 0.55); }
+.game-item-local { margin-left: 8px; padding: 1px 6px; border-radius: 4px; background: rgba(244, 239, 228, 0.08); font-size: 11px; }
+.game-item-actions { display: flex; align-items: center; gap: 6px; }
+.game-item-actions .btn { margin-right: auto; }
+.game-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 8px; border: none; cursor: pointer;
+  background: transparent; color: rgba(244, 239, 228, 0.6);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.game-icon-btn:hover { background: rgba(244, 239, 228, 0.1); color: #F4EFE4; }
+.game-icon-btn--danger:hover { color: #e58d84; }
+.game-icon-btn .achv-icon { width: 18px; height: 18px; }
+.game-icon-btn:disabled { opacity: 0.4; cursor: default; }
+.games-more { display: block; width: 100%; margin-top: 12px; }
+.games-more.hidden { display: none; }
 /* Кнопки внизу длинного окна прилипают к его нижнему краю. Нижний отступ
    окна переносим внутрь панели кнопок: иначе под ней остаётся щель, в
    которой проплывает прокручиваемое содержимое. */

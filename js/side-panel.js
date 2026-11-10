@@ -11,9 +11,10 @@
    элемент стека. Экран, соответствующий текущему верхнему элементу стека,
    получает класс .is-active; все остальные .side-view скрыты (display:none).
    ========================================================================= */
-const SIDE_VIEWS = ['menu', 'profile', 'profile-edit', 'settings', 'achievements', 'stats', 'about', 'faq'];
+const SIDE_VIEWS = ['menu', 'profile', 'profile-edit', 'settings', 'games', 'achievements', 'stats', 'about', 'faq'];
 const SIDE_VIEW_TITLES = {
   menu: '',
+  games: t('Мои партии'),
   profile: t('Профиль'),
   'profile-edit': t('Редактирование'),
   settings: t('Настройки'),
@@ -60,6 +61,7 @@ function renderSideView() {
   if (view === 'menu') renderMenuProfile();
   else if (view === 'profile') renderProfileView();
   else if (view === 'settings') { syncAutoHintAvailability(); syncAnalysisModeLock(); preloadHomeKnights(); }
+  else if (view === 'games') renderGamesView();
   else if (view === 'achievements') renderAchievementsGrid();
   else if (view === 'stats') renderStatsView();
 }

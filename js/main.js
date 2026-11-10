@@ -121,7 +121,7 @@ function handleTimeOut(color) {
   updateResignButtonLabel();
   const achvOutcome = state.mode === 'friend' ? 'draw' : (outcome === 'player_win' ? 'win' : 'loss');
   reportAchievementGameEnd(achvOutcome);
-  showResultModal(text, outcome, 'time');
+  showResultModal(text, outcome, 'time', color === 'w' ? 'b' : 'w');
 }
 
 function resetTimers() {

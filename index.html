@@ -414,6 +414,12 @@
         <div class="result-stat"><b id="resultStatCaptured">0</b><span>фигур вы взяли</span></div>
       </div>
 
+      <!-- Партия в формате PGN — открывается в Lichess, Chess.com и любой шахматной программе -->
+      <div class="result-pgn-row">
+        <button id="resultPgnDownloadBtn" class="result-pgn-btn" type="button"><span data-icon="download"></span>Скачать PGN</button>
+        <button id="resultPgnCopyBtn" class="result-pgn-btn" type="button"><span data-icon="copy"></span>Копировать PGN</button>
+      </div>
+
       <div id="characterResultBlock" class="character-result-block hidden">
         <div id="characterResultContent"></div>
       </div>
@@ -606,6 +612,11 @@
           <button type="button" class="menu-nav-item" data-menu-action="settings">
             <span class="menu-nav-icon" data-icon="settings"></span>
             <span class="menu-nav-label">Настройки</span>
+            <span class="menu-nav-arrow">›</span>
+          </button>
+          <button type="button" class="menu-nav-item" data-menu-action="games">
+            <span class="menu-nav-icon" data-icon="history"></span>
+            <span class="menu-nav-label">Мои партии</span>
             <span class="menu-nav-arrow">›</span>
           </button>
           <button type="button" class="menu-nav-item" data-menu-action="achievements">
@@ -998,6 +1009,13 @@
         </div>
       </div>
 
+      <!-- ===================== VIEW: МОИ ПАРТИИ ===================== -->
+      <div id="view-games" class="side-view">
+        <p id="gamesViewNote" class="games-note hidden"></p>
+        <div id="gamesViewList" class="games-list"></div>
+        <button id="gamesViewMoreBtn" class="btn btn-ghost btn-sm games-more hidden" type="button">Показать ещё</button>
+      </div>
+
       <!-- ===================== VIEW: О ПРИЛОЖЕНИИ ===================== -->
       <div id="view-about" class="side-view">
         <div class="about-hero">
@@ -1258,6 +1276,7 @@
 <script src="js/home-screen.js"></script>
 <script src="js/openings.js"></script>
 <script src="js/characters.js"></script>
+<script src="js/history.js"></script>
 <script src="js/home-background.js"></script>
 <script src="js/game.js"></script>
 <script src="js/opponents.js"></script>

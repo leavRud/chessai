@@ -38,21 +38,24 @@ const MODE_PILL_REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: red
 function placeModePill() {
   const active = document.querySelector('.home-mode-btn.is-active');
   const pill = $id('homeModePill');
+  // Режимы стоят столбиком или в ряд (на планшете) — подложка повторяет кнопку целиком
   pill.style.top = `${active.offsetTop}px`;
   pill.style.height = `${active.offsetHeight}px`;
+  pill.style.left = `${active.offsetLeft}px`;
+  pill.style.width = `${active.offsetWidth}px`;
 }
 
 function springModePill() {
   const pill = $id('homeModePill');
   // Начинаем с текущего положения: режим могли сменить посреди анимации
-  const { top, height } = getComputedStyle(pill);
+  const { top, height, left, width } = getComputedStyle(pill);
   pill.getAnimations().forEach(animation => animation.cancel());
   placeModePill();
   const smooth = !MODE_PILL_REDUCED_MOTION.matches && !document.documentElement.classList.contains('perf-low');
   if (!smooth) return;
   pill.animate([
-    { top, height },
-    { top: pill.style.top, height: pill.style.height },
+    { top, height, left, width },
+    { top: pill.style.top, height: pill.style.height, left: pill.style.left, width: pill.style.width },
   ], { duration: MODE_PILL_SPRING_MS, easing: MODE_PILL_SPRING_EASING });
 }
 

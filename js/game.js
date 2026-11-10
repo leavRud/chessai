@@ -35,6 +35,8 @@ function resetToModeSelection() {
 function initGame() {
   state.game = new Chess();
   state.isGameOver = false;
+  state.isReview = false; // true — открыта старая партия из «Моих партий»
+  $id('rematchBtn').classList.remove('hidden');
   state.isThinking = false;
   state.chatDisplay = [];
   state.chatApiHistory = [];
@@ -484,9 +486,10 @@ function checkGameOver() {
   let text;
   let outcome = 'draw';
   let reason = 'draw';
+  let winnerColor = null;
   if (game.in_checkmate()) {
     reason = 'mate';
-    const winnerColor = game.turn() === 'w' ? 'b' : 'w';
+    winnerColor = game.turn() === 'w' ? 'b' : 'w';
     const winner = winnerColor === 'w' ? t('Белые') : t('Чёрные');
     text = t('Мат! Победили {winner}.', { winner });
     outcome = winnerColor === state.playerColor ? 'player_win' : 'character_win';
@@ -505,7 +508,7 @@ function checkGameOver() {
   }
   const achvOutcome = state.mode === 'friend' ? 'draw' : (outcome === 'player_win' ? 'win' : (outcome === 'character_win' ? 'loss' : 'draw'));
   reportAchievementGameEnd(achvOutcome);
-  showResultModal(text, outcome, reason);
+  showResultModal(text, outcome, reason, winnerColor);
   return true;
 }
 
@@ -547,7 +550,9 @@ function renderResultStats(reason) {
     : t('{pieces} взяли вы', { pieces });
 }
 
-function showResultModal(text, outcome = 'draw', reason = 'over') {
+// winner — цвет победителя ('w' | 'b') или null при ничьей: нужен для истории и PGN.
+function showResultModal(text, outcome = 'draw', reason = 'over', winner = null) {
+  saveFinishedGame(buildGameRecord({ reason, winner, summary: text }));
   if (outcome === 'player_win') playSound('win');
   else if (outcome === 'character_win') playSound('lose');
   $id('resultTitle').textContent = resultTitleFor(reason, outcome);
@@ -586,5 +591,7 @@ $id('resignBtn').addEventListener('click', () => {
   stopBackgroundAnalysis();
   const achvOutcome = state.mode === 'friend' ? 'draw' : 'loss';
   reportAchievementGameEnd(achvOutcome);
-  showResultModal(text, outcome, 'resign');
+  // Сдаётся игрок, а вдвоём — сторона, чей сейчас ход
+  const resigned = state.mode === 'friend' ? state.game.turn() : state.playerColor;
+  showResultModal(text, outcome, 'resign', resigned === 'w' ? 'b' : 'w');
 });

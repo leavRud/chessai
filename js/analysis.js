@@ -682,6 +682,9 @@ async function refineGameAnalysis(runId, fens, moves, weakPc, baseDepth, critica
 
     renderAnalysis(stats, moves.length, comment);
 
+    // Старая партия из «Моих партий»: разбор только для просмотра — иначе
+    // повторные разборы двигали бы рейтинг и копили достижения за анализ.
+    if (state.isReview) return;
     if (window.Achievements) {
       const evaluationsAbsoluteWhite = fens.map((fen, i) => scoreAbsoluteWhite(evaluations[i], fen));
       window.Achievements.trackAnalysis({
@@ -762,7 +765,7 @@ function renderAnalysis(stats, totalPly, comment, { refining = false } = {}) {
       const label = card.classList.contains('move-card-best') ? 'best'
         : card.classList.contains('move-card-worst') ? 'worst' : null;
       openMoveDetail(card.dataset.fen, card.dataset.san, label);
-      if (label === 'best' && window.Achievements) window.Achievements.trackBestMoveView();
+      if (label === 'best' && window.Achievements && !state.isReview) window.Achievements.trackBestMoveView();
     });
   });
 }
