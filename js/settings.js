@@ -66,6 +66,62 @@ function applyAccent(name) {
   });
   const knightImg = $id('homeKnightImg');
   if (knightImg) knightImg.src = HOME_KNIGHT_SRC[name] || HOME_KNIGHT_SRC.gold;
+  applyFaviconAccent(name);
+}
+
+/* ---- Иконка во вкладке в цвет акцента ----
+   Берём золотую иконку и перекрашиваем на canvas: каждый пиксель смешиваем
+   между фоном и цветом акцента в той же пропорции, в какой он был между
+   фоном и золотом, — так сглаживание краёв буквы сохраняется. Цвета — тёмной
+   темы: фон иконки тёмный всегда. Иконку установленного приложения браузер
+   запоминает при установке, её так не поменять. */
+const FAVICON_ACCENT_RGB = {
+  maroon: [0xc9, 0x70, 0x7a],
+  blue: [0x5b, 0x8f, 0xd9],
+  green: [0x5f, 0xbf, 0x85],
+};
+const FAVICON_SRC = 'assests/icon-192.png';
+const FAVICON_SIZE = 64; // запас под экраны с высокой плотностью пикселей
+let faviconSource = null;
+
+function applyFaviconAccent(name) {
+  const link = document.querySelector('link[rel="icon"]');
+  if (!link) return;
+  link.dataset.src ||= link.getAttribute('href');
+  const accent = FAVICON_ACCENT_RGB[name];
+  if (!accent) { link.href = link.dataset.src; return; }
+
+  if (!faviconSource) {
+    faviconSource = new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = FAVICON_SRC;
+    });
+  }
+  faviconSource.then((img) => {
+    if (state.settings.accent !== name) return; // пока грузилось, выбрали другой цвет
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = FAVICON_SIZE;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, FAVICON_SIZE, FAVICON_SIZE);
+    const data = ctx.getImageData(0, 0, FAVICON_SIZE, FAVICON_SIZE);
+    const px = data.data;
+    // Фон — угловой пиксель, «золото» — самый яркий: так не зависим от точных цветов файла
+    const bg = [px[0], px[1], px[2]];
+    let gold = bg, goldLum = -1;
+    for (let i = 0; i < px.length; i += 4) {
+      const lum = px[i] + px[i + 1] + px[i + 2];
+      if (lum > goldLum) { goldLum = lum; gold = [px[i], px[i + 1], px[i + 2]]; }
+    }
+    const span = goldLum - (bg[0] + bg[1] + bg[2]) || 1;
+    for (let i = 0; i < px.length; i += 4) {
+      const k = Math.min(1, Math.max(0, (px[i] + px[i + 1] + px[i + 2] - bg[0] - bg[1] - bg[2]) / span));
+      for (let c = 0; c < 3; c++) px[i + c] = Math.round(bg[c] + (accent[c] - bg[c]) * k);
+    }
+    ctx.putImageData(data, 0, 0);
+    link.href = canvas.toDataURL('image/png');
+  }).catch(() => { link.href = link.dataset.src; });
 }
 
 function applyBoardStyle(name) {
