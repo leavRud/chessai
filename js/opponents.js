@@ -154,15 +154,44 @@ function characterMovePolicy(c) {
   const temperature = Math.max(6, cplForElo(Number(c.elo) || 1000) * (1.15 - 0.35 * caution) * (0.85 + 0.3 * emotion));
   const blunderChance = (1 - strength) ** 3 * 0.24 * (1.3 - 0.6 * caution); // 600 Elo → ~20%, 1500 → ~5%, 2000 → ~1%
   const multipv = strength < 0.35 ? 8 : strength < 0.65 ? 6 : 4;
-  return { strength, caution, temperature, blunderChance, multipv };
+  // Насколько охотно забирает подставленное: даже новичок обычно видит
+  // висящую фигуру (800 → ~65%, 1200 → ~75%, 2000+ → ~90%). Раньше 1200
+  // проходил мимо бесплатной фигуры так же часто, как 800.
+  const noticeFree = 0.6 + 0.35 * strength;
+  return { strength, caution, temperature, blunderChance, multipv, noticeFree };
 }
 
-// Случайный ход из всех допустимых — так «зевают» живые новички.
-function randomLegalMove(fen) {
-  const moves = new Chess(fen).moves({ verbose: true });
-  if (!moves.length) return null;
-  const m = moves[Math.floor(Math.random() * moves.length)];
-  return { move: m.from + m.to + (m.promotion || ''), score: null };
+// «Зевок» как у живого игрока: не случайный ход из всех (раньше персонаж
+// ни с того ни с сего играл a4 или Kf1 и выглядел нелепо), а естественный —
+// развитие, взятие, шах, ход центральной пешкой, — который движок не
+// рассматривал, потому что после него что-то повисло.
+const NATURAL_PIECE_VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+function naturalBlunderMove(fen, candidates) {
+  const game = new Chess(fen);
+  const engineMoves = new Set(candidates.map(c => c.move.slice(0, 4)));
+  const back = game.turn() === 'w' ? '1' : '8';
+  const plies = game.history().length + (parseInt(fen.split(' ')[5], 10) - 1) * 2;
+  const options = game.moves({ verbose: true }).filter(m => !engineMoves.has(m.from + m.to));
+  if (!options.length) return null;
+  const weights = options.map((m) => {
+    let w = 1;
+    if (m.captured) w += 2 + NATURAL_PIECE_VALUE[m.captured] / 2;
+    if (m.san.includes('+')) w += 2;
+    if (m.flags.includes('k') || m.flags.includes('q')) w += 2;
+    if ((m.piece === 'n' || m.piece === 'b') && m.from[1] === back) w += 2.5; // развитие
+    if (m.piece === 'p' && (m.from[0] === 'd' || m.from[0] === 'e')) w += 1.5;
+    if (m.piece === 'k' && !m.flags.includes('k') && !m.flags.includes('q')) w *= 0.15;
+    if (m.piece === 'p' && (m.from[0] === 'a' || m.from[0] === 'h')) w *= 0.4;
+    if (m.piece === 'q' && plies < 16) w *= 0.5; // ранний выход ферзя — реже
+    return w;
+  });
+  let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+  let chosen = options[0];
+  for (let i = 0; i < options.length; i++) {
+    r -= weights[i];
+    if (r <= 0) { chosen = options[i]; break; }
+  }
+  return { move: chosen.from + chosen.to + (chosen.promotion || ''), score: null };
 }
 
 // Выбор хода по характеру — локально, без нейросети. Каждому варианту движка
@@ -173,14 +202,19 @@ function randomLegalMove(fen) {
 function pickCharacterMove(fen, candidates) {
   const c = state.character;
   const policy = characterMovePolicy(c);
+  const topScore = cappedCp(candidates[0].score);
+  // Подставили фигуру — лучший ход на 2+ пешки сильнее остальных. Чаще всего
+  // персонаж это видит и забирает; зевнуть ход в ответ здесь было бы нелепо.
+  const freeGap = candidates.length > 1 ? topScore - cappedCp(candidates[1].score) : 0;
+  if (freeGap >= 200 && Math.random() < policy.noticeFree) return candidates[0];
+
   if (Math.random() < policy.blunderChance) {
-    const blunder = randomLegalMove(fen);
+    const blunder = naturalBlunderMove(fen, candidates);
     if (blunder) return blunder;
   }
   const described = describeCandidateMoves(fen, candidates);
   if (described.length <= 1) return candidates[0];
 
-  const topScore = cappedCp(candidates[0].score);
   const logits = described.map((d) => {
     let bonus = 0;
     if (d.isCapture) bonus += 25 * traitK(c.aggression) + 20 * traitK(c.sacrifice);

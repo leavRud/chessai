@@ -159,7 +159,7 @@ function squareCenter(sq, flipped) {
   return flipped ? { x: 100 - x, y: 100 - y } : { x, y };
 }
 
-function drawBoardArrow(svg, from, to, color, { flipped = false, opacity = 0.9, width = 3.1, dashed = false } = {}) {
+function drawBoardArrow(svg, from, to, color, { flipped = false, opacity = 0.9, width = 1.9, dashed = false } = {}) {
   const a = squareCenter(from, flipped);
   const b = squareCenter(to, flipped);
   const df = Math.abs('abcdefgh'.indexOf(from[0]) - 'abcdefgh'.indexOf(to[0]));
@@ -173,8 +173,8 @@ function drawBoardArrow(svg, from, to, color, { flipped = false, opacity = 0.9, 
   const len = Math.hypot(b.x - prev.x, b.y - prev.y) || 1;
   const ux = (b.x - prev.x) / len;
   const uy = (b.y - prev.y) / len;
-  const headLen = 5.4;
-  const headHalf = 3.9;
+  const headLen = 4.4;
+  const headHalf = 2.9;
   const tip = { x: b.x + ux * 1.6, y: b.y + uy * 1.6 };
   const base = { x: tip.x - ux * headLen, y: tip.y - uy * headLen };
   points.push({ x: base.x + ux * 0.6, y: base.y + uy * 0.6 }); // стержень заходит под наконечник
@@ -191,7 +191,7 @@ function drawBoardArrow(svg, from, to, color, { flipped = false, opacity = 0.9, 
   shaft.setAttribute('stroke-width', String(width));
   shaft.setAttribute('stroke-linecap', 'round');
   shaft.setAttribute('stroke-linejoin', 'round');
-  if (dashed) shaft.setAttribute('stroke-dasharray', '3.2 2.4');
+  if (dashed) shaft.setAttribute('stroke-dasharray', '2.6 2');
   g.appendChild(shaft);
 
   const head = document.createElementNS(SVG_NS, 'polygon');
@@ -306,7 +306,7 @@ function drawMoveDetailArrows(item, playedMove) {
   const sameAsBest = bestUci && playedMove && bestUci.slice(0, 4) === playedMove.from + playedMove.to;
 
   if (bestUci && !sameAsBest) {
-    drawBoardArrow(svg, bestUci.slice(0, 2), bestUci.slice(2, 4), ARROW_COLORS.engine, { opacity: 0.85, width: 2.6, dashed: true });
+    drawBoardArrow(svg, bestUci.slice(0, 2), bestUci.slice(2, 4), ARROW_COLORS.engine, { opacity: 0.85, width: 1.6, dashed: true });
   }
   if (playedMove) drawBoardArrow(svg, playedMove.from, playedMove.to, playedColor);
   if (playedMove) highlightDetailSquares(playedMove.from, playedMove.to, verdict);
