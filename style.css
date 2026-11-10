@@ -603,6 +603,9 @@ html:not(.dark) img.piece-417db { filter: drop-shadow(0 1px 1.5px rgba(40, 25, 1
 .color-choice-black { background: #2A241D; border-color: #2A241D; }
 .color-choice-btn.is-active[data-color="w"] { border-color: var(--gold); }
 .color-choice-btn.is-active[data-color="b"] { border-color: var(--accent); }
+.color-choice-random { background: linear-gradient(135deg, #F6F1E6 50%, #2A241D 50%); }
+.color-choice-btn.is-active[data-color="r"] { border-color: var(--gold); }
+.char-color-section { margin-top: 18px; margin-bottom: 0; }
 
 .diff-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .diff-easy .diff-dot   { background: #5FAE6E; }

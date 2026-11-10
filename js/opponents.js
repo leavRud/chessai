@@ -230,7 +230,7 @@ async function requestCharacterMove() {
 
   // Пока партия идёт по его защите — ходит по книге, а не по движку: так
   // дебют совпадает с тем, что написано в карточке персонажа.
-  const bookSan = pickBookMove(state.character, state.game);
+  const bookSan = pickBookMove(state.character, state.game, state.aiColor);
   if (bookSan) {
     await new Promise(r => setTimeout(r, 450 + Math.random() * 500)); // «подумал»
     const bookMove = !state.isGameOver && state.game.fen() === fen ? state.game.move(bookSan, { sloppy: true }) : null;

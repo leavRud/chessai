@@ -101,7 +101,7 @@ function resetDifficultyChoice() {
   chosenColor = localStorage.getItem('chessLastColor') === 'b' ? 'b' : 'w';
   const savedLevel = parseInt(localStorage.getItem('chessLastLevel'), 10);
   chosenLevel = LEVEL_LABEL[savedLevel] ? savedLevel : 14;
-  document.querySelectorAll('.color-choice-btn').forEach(b => {
+  document.querySelectorAll('#colorModal .color-choice-btn').forEach(b => {
     const active = b.dataset.color === chosenColor;
     b.classList.toggle('is-active', active);
     b.setAttribute('aria-pressed', String(active));
@@ -121,11 +121,11 @@ function updateStartAiBtn() {
     level: LEVEL_LABEL[chosenLevel] || LEVEL_LABEL[14],
   });
 }
-document.querySelectorAll('.color-choice-btn').forEach(btn => {
+document.querySelectorAll('#colorModal .color-choice-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     playSound('ui');
     chosenColor = btn.dataset.color;
-    document.querySelectorAll('.color-choice-btn').forEach(b => {
+    document.querySelectorAll('#colorModal .color-choice-btn').forEach(b => {
       const active = b === btn;
       b.classList.toggle('is-active', active);
       b.setAttribute('aria-pressed', String(active));

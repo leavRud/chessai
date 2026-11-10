@@ -106,12 +106,38 @@ $id('charCardRegenBtn').addEventListener('click', () => {
   if (!charState.lastInput) return;
   runCharacterGeneration(charState.lastInput);
 });
+/* ---- Цвет игрока против персонажа: белые, чёрные или случайно ----
+   Выбор запоминается; «Случайно» бросает жребий при каждом старте. */
+const CHAR_COLOR_KEY = 'chessLastCharColor';
+let charChosenColor = 'w';
+function syncCharColorButtons() {
+  document.querySelectorAll('#charColorRow .color-choice-btn').forEach(b => {
+    const active = b.dataset.color === charChosenColor;
+    b.classList.toggle('is-active', active);
+    b.setAttribute('aria-pressed', String(active));
+  });
+}
+try {
+  const saved = localStorage.getItem(CHAR_COLOR_KEY);
+  if (['w', 'b', 'r'].includes(saved)) charChosenColor = saved;
+} catch (e) { /* хранилище недоступно — по умолчанию белые */ }
+syncCharColorButtons();
+document.querySelectorAll('#charColorRow .color-choice-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    playSound('ui');
+    charChosenColor = btn.dataset.color;
+    try { localStorage.setItem(CHAR_COLOR_KEY, charChosenColor); } catch (e) { /* не запоминаем */ }
+    syncCharColorButtons();
+  });
+});
+
 $id('charCardPlayBtn').addEventListener('click', () => {
   if (!state.character) return;
   hideModal('characterCardModal');
   state.mode = 'characters';
-  state.playerColor = 'w';
-  state.aiColor = 'b';
+  const color = charChosenColor === 'r' ? (Math.random() < 0.5 ? 'w' : 'b') : charChosenColor;
+  state.playerColor = color;
+  state.aiColor = color === 'w' ? 'b' : 'w';
   state.skillLevel = eloToSkillLevel(state.character.elo);
   if (stockfish && isEngineReady) {
     stockfish.postMessage(`setoption name Skill Level value ${state.skillLevel}`);
@@ -155,6 +181,7 @@ function buildCharacterGenSystemPrompt() {
   "name": "имя персонажа",
   "shortDescription": "одно короткое предложение о персонаже",
   "style": "1-2 предложения о стиле игры в шахматы",
+  "white": "id системы за белых",
   "defenses": ["id защиты против 1.e4", "id защиты против 1.d4"],
   "aggression": число 0-100,
   "combination": число 0-100,
@@ -183,14 +210,15 @@ function buildCharacterGenSystemPrompt() {
   Если это реальный шахматист — бери его настоящий рейтинг. Если о шахматах персонажа ничего не известно — ставь 600–1100, даже если он гений в другой области. Выше 1500 — только если игра в шахматы прямо известна о персонаже или указана в описании.
   Учитывай и экранизации, сериалы, игры: если там персонаж играет в шахматы на высоком уровне (Шерлок Холмс против Мориарти, Спок, Бет Хармон), это и есть его сила — ставь 1900–2500 по тому, как сильно он играет.
 
-  Персонаж всегда играет чёрными. В "defenses" выбери ровно две защиты под его характер — одну против 1.e4 и одну против 1.d4 — только id из списка:
-  против 1.e4: ${openingIdsAgainst('e4')};
-  против 1.d4: ${openingIdsAgainst('d4')}.`;
+  Дебютный репертуар выбери под характер, только id из списков ниже (атакующим — острые гамбиты и дракон, осторожным — солидные системы, новичкам — простые):
+  "white" — система за белых: ${openingIdsFor('w')};
+  "defenses" — ровно две защиты за чёрных, одна против 1.e4: ${openingIdsFor('b', 'e4')};
+  и одна против 1.d4: ${openingIdsFor('b', 'd4')}.`;
 }
 
-function openingIdsAgainst(move) {
+function openingIdsFor(side, against) {
   return Object.entries(OPENING_BOOK)
-    .filter(([, opening]) => opening.against === move)
+    .filter(([, opening]) => opening.side === side && (!against || opening.against === against))
     .map(([id, opening]) => `${id} (${opening.name.ru})`)
     .join(', ');
 }
@@ -210,14 +238,15 @@ function normalizeCharacterProfile(p, input) {
   };
   const fallbackName = input.type === 'name' ? input.value : t('Загадочный соперник');
   const name = String(p.name || fallbackName).trim().slice(0, 40) || fallbackName;
-  // Карточка показывает ровно те защиты, которые персонаж разыгрывает по книге
-  const defenses = resolveCharacterDefenses(p.defenses, p.openings);
+  // Карточка показывает ровно те дебюты, которые персонаж разыгрывает по книге
+  const ids = [p.white, ...(Array.isArray(p.defenses) ? p.defenses : [])];
+  const repertoire = resolveCharacterRepertoire(ids, p.openings);
   return {
-    defenses,
+    repertoire,
     name,
     shortDescription: String(p.shortDescription || '').trim().slice(0, 180) || t('Загадочный противник со своим стилем игры.'),
     style: String(p.style || '').trim().slice(0, 320) || t('Играет непредсказуемо, полагаясь на интуицию.'),
-    openings: describeCharacterDefenses(defenses),
+    openings: describeCharacterRepertoire(repertoire),
     aggression: clampNum(p.aggression, 0, 100, 50),
     combination: clampNum(p.combination, 0, 100, 50),
     sacrifice: clampNum(p.sacrifice, 0, 100, 30),
