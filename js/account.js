@@ -137,11 +137,12 @@ function openAuthModal(reason = '') {
   const reasonEl = $id('authReason');
   reasonEl.textContent = reason;
   reasonEl.classList.toggle('hidden', !reason);
-  ['authLoginEmail', 'authLoginPassword', 'authRegisterName', 'authRegisterEmail', 'authRegisterPassword', 'authRegisterPassword2'].forEach((id) => {
+  ['authLoginEmail', 'authLoginPassword', 'authRegisterName', 'authRegisterEmail', 'authRegisterPassword', 'authRegisterPassword2',
+    'authForgotEmail', 'authResetPassword', 'authResetPassword2'].forEach((id) => {
     const el = $id(id);
     if (el) el.value = '';
   });
-  clearAuthErrors();
+  setAuthMode('login');
   updatePasswordStrength('');
   showModal('authModal');
   setTimeout(() => { const el = $id('authLoginEmail'); if (el) el.focus(); }, 50);

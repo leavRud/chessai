@@ -3064,6 +3064,14 @@ html.dark .achv-modal-overlay .achv-modal {
 }
 .auth-link-btn:hover { text-decoration: underline; }
 
+/* Режимы «забыли пароль» / «новый пароль»: без вкладок, соцсетей и согласия */
+.auth-modal.is-recovery .auth-tabs,
+.auth-modal.is-recovery .auth-provider-col,
+.auth-modal.is-recovery .auth-divider,
+.auth-modal.is-recovery .auth-consent { display: none; }
+.auth-note { margin: 6px 0 18px; font-size: 14px; line-height: 1.5; color: rgba(244, 239, 228, 0.8); }
+.auth-note b { color: #F4EFE4; font-weight: 600; word-break: break-all; }
+
 
 .settings-panel.panel-expanded {
   width: 40%;

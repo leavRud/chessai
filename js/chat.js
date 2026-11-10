@@ -310,6 +310,7 @@ async function handleAsk() {
   input.value = '';
   appendChatMessage('user', question);
   setAskLoading(true);
+  trackGoal('ai_question', { mode: state.mode });
 
   const contextualUser = await buildChatContextMessage(question);
   state.chatApiHistory.push({ role: 'user', content: contextualUser });

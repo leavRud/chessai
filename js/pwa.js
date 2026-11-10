@@ -49,6 +49,7 @@
 
   window.addEventListener('appinstalled', () => {
     deferredPrompt = null;
+    if (typeof trackGoal === 'function') trackGoal('pwa_install');
     render();
     if (typeof showToast === 'function') showToast(t('Приложение установлено'));
   });

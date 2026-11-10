@@ -544,7 +544,7 @@
 
         <div class="feedback-field">
           <label class="settings-row-label" for="feedbackContact">Контакт (необязательно)</label>
-          <input id="feedbackContact" type="text" class="menu-text-input" maxlength="120" placeholder="Email, если ждёте ответа">
+          <input id="feedbackContact" type="text" class="menu-text-input ym-disable-keys" maxlength="120" placeholder="Email, если ждёте ответа">
           <span class="feedback-error" id="feedbackContactError" role="alert"></span>
         </div>
 
@@ -746,7 +746,7 @@
         </div>
         <div class="menu-field">
           <span class="settings-row-label">Имя / ник</span>
-          <input id="profileEditNameInput" type="text" class="menu-text-input" placeholder="Ваше имя" maxlength="24">
+          <input id="profileEditNameInput" type="text" class="menu-text-input ym-disable-keys" placeholder="Ваше имя" maxlength="24">
         </div>
 
         <div class="modal-actions menu-view-actions">
@@ -1119,7 +1119,7 @@
     <form id="authLoginForm" class="auth-form" novalidate>
       <div class="auth-field">
         <span class="settings-row-label">Email</span>
-        <input id="authLoginEmail" type="email" class="menu-text-input" placeholder="you@example.com" autocomplete="email" required>
+        <input id="authLoginEmail" type="email" class="menu-text-input ym-disable-keys" placeholder="you@example.com" autocomplete="email" required>
         <span class="auth-field-error" id="authLoginEmailError"></span>
       </div>
       <div class="auth-field">
@@ -1141,12 +1141,12 @@
     <form id="authRegisterForm" class="auth-form hidden" novalidate>
       <div class="auth-field">
         <span class="settings-row-label">Ваше имя</span>
-        <input id="authRegisterName" type="text" class="menu-text-input" placeholder="Например: Александр" maxlength="24" autocomplete="nickname" required>
+        <input id="authRegisterName" type="text" class="menu-text-input ym-disable-keys" placeholder="Например: Александр" maxlength="24" autocomplete="nickname" required>
         <span class="auth-field-error" id="authRegisterNameError"></span>
       </div>
       <div class="auth-field">
         <span class="settings-row-label">Email</span>
-        <input id="authRegisterEmail" type="email" class="menu-text-input" placeholder="you@example.com" autocomplete="email" required>
+        <input id="authRegisterEmail" type="email" class="menu-text-input ym-disable-keys" placeholder="you@example.com" autocomplete="email" required>
         <span class="auth-field-error" id="authRegisterEmailError"></span>
       </div>
       <div class="auth-field">
@@ -1169,6 +1169,54 @@
       <div class="modal-actions">
         <button id="authRegisterSubmitBtn" class="btn btn-accent" type="submit">Создать аккаунт</button>
         <button id="authRegisterCancelBtn" class="btn btn-ghost" type="button">Отмена</button>
+      </div>
+    </form>
+
+    <!-- Забыли пароль: письмо со ссылкой на смену пароля -->
+    <form id="authForgotForm" class="auth-form hidden" novalidate>
+      <p class="auth-note">Укажите email аккаунта — пришлём ссылку для смены пароля.</p>
+      <div class="auth-field">
+        <span class="settings-row-label">Email</span>
+        <input id="authForgotEmail" type="email" class="menu-text-input ym-disable-keys" placeholder="you@example.com" autocomplete="email" required>
+        <span class="auth-field-error" id="authForgotEmailError"></span>
+      </div>
+      <div class="modal-actions">
+        <button id="authForgotSubmitBtn" class="btn btn-accent" type="submit">Отправить ссылку</button>
+        <button id="authForgotBackBtn" class="btn btn-ghost" type="button">Назад</button>
+      </div>
+    </form>
+
+    <!-- Письмо отправлено -->
+    <div id="authForgotSent" class="auth-form hidden">
+      <p class="auth-note">Если аккаунт с адресом <b id="authForgotSentEmail" class="ym-hide-content"></b> существует, письмо со ссылкой уже в пути. Проверьте и папку «Спам».</p>
+      <div class="modal-actions">
+        <button id="authForgotSentOkBtn" class="btn btn-accent" type="button">Понятно</button>
+        <button id="authForgotResendBtn" class="btn btn-ghost" type="button">Другой email</button>
+      </div>
+    </div>
+
+    <!-- Новый пароль: открывается после перехода по ссылке из письма -->
+    <form id="authResetForm" class="auth-form hidden" novalidate>
+      <p class="auth-note">Придумайте новый пароль для входа.</p>
+      <div class="auth-field">
+        <span class="settings-row-label">Новый пароль</span>
+        <div class="auth-password-wrap">
+          <input id="authResetPassword" type="password" class="menu-text-input" placeholder="Минимум 8 символов" autocomplete="new-password" required minlength="8">
+          <button type="button" class="auth-password-toggle" data-target="authResetPassword" aria-label="Показать пароль" data-icon="eye"></button>
+        </div>
+        <div class="auth-password-strength" id="authResetStrength"><span></span></div>
+        <span class="auth-field-error" id="authResetPasswordError"></span>
+      </div>
+      <div class="auth-field">
+        <span class="settings-row-label">Повторите пароль</span>
+        <div class="auth-password-wrap">
+          <input id="authResetPassword2" type="password" class="menu-text-input" placeholder="••••••••" autocomplete="new-password" required minlength="8">
+          <button type="button" class="auth-password-toggle" data-target="authResetPassword2" aria-label="Показать пароль" data-icon="eye"></button>
+        </div>
+        <span class="auth-field-error" id="authResetPassword2Error"></span>
+      </div>
+      <div class="modal-actions">
+        <button id="authResetSubmitBtn" class="btn btn-accent" type="submit">Сохранить пароль</button>
       </div>
     </form>
 
@@ -1199,6 +1247,7 @@
      поэтому порядок важен: файл может сразу при загрузке пользоваться только
      тем, что объявлено в файлах выше. state.js — первым, main.js — последним. -->
 <script>translatePage();</script>
+<script src="js/analytics.js"></script>
 <script src="js/state.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/theme.js"></script>

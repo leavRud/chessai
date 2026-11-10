@@ -6,6 +6,13 @@
    ========================================================================= */
 const SUPABASE_URL = 'https://lmkomispucbysxidkcno.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxta29taXNwdWNieXN4aWRrY25vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5MDE3MzEsImV4cCI6MjEwMjQ3NzczMX0.0VMFP0MdbZNyL-o9YCPot1zqbhF5hsMlUaMjmkak1PQ';
+// Пришли ли по ссылке из письма «сменить пароль». Смотрим до createClient: клиент
+// сразу стирает токены из адреса, а событие PASSWORD_RECOVERY может прийти раньше,
+// чем приложение на него подпишется.
+const AUTH_URL_HASH = new URLSearchParams(location.hash.slice(1));
+const AUTH_RECOVERY_IN_URL = AUTH_URL_HASH.get('type') === 'recovery';
+// Ссылка просрочена или уже использована — Supabase возвращает error_code в адресе.
+const AUTH_LINK_ERROR = AUTH_URL_HASH.get('error_code') || '';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Единая версия приложения — используется в "О приложении" и в отправке обратной связи.

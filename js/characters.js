@@ -94,6 +94,7 @@ $id('charCreateBtn').addEventListener('click', () => {
   }
   charState.lastInput = input;
   hideModal('characterSetupModal');
+  trackGoal('character_create', { by: input.type });
   runCharacterGeneration(input);
 });
 

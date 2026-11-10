@@ -69,17 +69,7 @@ function initAuth() {
   const loginForm = $id('authLoginForm');
   const registerForm = $id('authRegisterForm');
 
-  const switchAuthTab = (tab) => {
-    const isLogin = tab === 'login';
-    tabLogin.classList.toggle('is-active', isLogin);
-    tabRegister.classList.toggle('is-active', !isLogin);
-    tabLogin.setAttribute('aria-selected', String(isLogin));
-    tabRegister.setAttribute('aria-selected', String(!isLogin));
-    loginForm.classList.toggle('hidden', !isLogin);
-    registerForm.classList.toggle('hidden', isLogin);
-    $id('authModalTitle').textContent = isLogin ? t('Вход в аккаунт') : t('Регистрация');
-    clearAuthErrors();
-  };
+  const switchAuthTab = setAuthMode;
 
   if (tabLogin) tabLogin.addEventListener('click', () => switchAuthTab('login'));
   if (tabRegister) tabRegister.addEventListener('click', () => switchAuthTab('register'));
@@ -109,11 +99,19 @@ function initAuth() {
   if (loginForm) loginForm.addEventListener('submit', (e) => { e.preventDefault(); handleLoginSubmit(); });
   if (registerForm) registerForm.addEventListener('submit', (e) => { e.preventDefault(); handleRegisterSubmit(); });
 
+  // Забыли пароль → письмо со ссылкой → форма нового пароля
   $id('authForgotBtn').addEventListener('click', () => {
-    showToast(t('Восстановление пароля скоро будет доступно'));
+    $id('authForgotEmail').value = $id('authLoginEmail').value.trim();
+    setAuthMode('forgot');
+    $id('authForgotEmail').focus();
   });
+  $id('authForgotForm').addEventListener('submit', (e) => { e.preventDefault(); handleForgotSubmit(); });
+  $id('authForgotBackBtn').addEventListener('click', () => setAuthMode('login'));
+  $id('authForgotSentOkBtn').addEventListener('click', () => hideModal('authModal'));
+  $id('authForgotResendBtn').addEventListener('click', () => { setAuthMode('forgot'); $id('authForgotEmail').focus(); });
+  $id('authResetForm').addEventListener('submit', (e) => { e.preventDefault(); handleResetSubmit(); });
+  $id('authResetPassword').addEventListener('input', (e) => updatePasswordStrength(e.target.value, 'authResetStrength'));
 
-  // Вход через Google/VK пока не реализован — заглушка с уведомлением.
   if (googleBtn) googleBtn.addEventListener('click', () => signInWithOAuthProvider('google'));
   if (vkBtn) vkBtn.addEventListener('click', () => signInWithOAuthProvider('custom:vk')); // 'vk' — slug вашего Custom Provider в Supabase
 
@@ -130,6 +128,110 @@ function initAuth() {
 
   // Открываем модалку всегда на вкладке "Вход"
   switchAuthTab('login');
+}
+
+// Режим окна входа: 'login' | 'register' — вкладки; 'forgot' | 'forgotSent' | 'reset' —
+// восстановление пароля (без вкладок, соцсетей и строки о согласии).
+const AUTH_MODES = {
+  login: { form: 'authLoginForm', title: 'Вход в аккаунт' },
+  register: { form: 'authRegisterForm', title: 'Регистрация' },
+  forgot: { form: 'authForgotForm', title: 'Восстановление пароля' },
+  forgotSent: { form: 'authForgotSent', title: 'Проверьте почту' },
+  reset: { form: 'authResetForm', title: 'Новый пароль' },
+};
+function setAuthMode(mode) {
+  const isLogin = mode === 'login';
+  const tabLogin = $id('authTabLogin');
+  const tabRegister = $id('authTabRegister');
+  tabLogin.classList.toggle('is-active', isLogin);
+  tabRegister.classList.toggle('is-active', mode === 'register');
+  tabLogin.setAttribute('aria-selected', String(isLogin));
+  tabRegister.setAttribute('aria-selected', String(mode === 'register'));
+  Object.entries(AUTH_MODES).forEach(([key, m]) => $id(m.form).classList.toggle('hidden', key !== mode));
+  document.querySelector('#authModal .auth-modal').classList.toggle('is-recovery', !['login', 'register'].includes(mode));
+  $id('authModalTitle').textContent = t(AUTH_MODES[mode].title);
+  clearAuthErrors();
+}
+
+async function handleForgotSubmit() {
+  clearAuthErrors();
+  const email = $id('authForgotEmail').value.trim();
+  if (!email || !EMAIL_RE.test(email)) {
+    setFieldError('authForgotEmail', 'authForgotEmailError', t('Введите корректный email'));
+    return;
+  }
+  const btn = $id('authForgotSubmitBtn');
+  btn.disabled = true;
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href.split('#')[0].split('?')[0],
+  });
+  btn.disabled = false;
+  if (error) {
+    const tooOften = error.status === 429 || /rate limit/i.test(error.message || '');
+    setFieldError('authForgotEmail', 'authForgotEmailError', tooOften
+      ? t('Слишком много запросов. Попробуйте через несколько минут')
+      : t('Не удалось отправить письмо. Попробуйте ещё раз'));
+    return;
+  }
+  trackGoal('password_reset_request');
+  // Есть ли такой аккаунт, не сообщаем: иначе по форме можно проверять чужие email.
+  $id('authForgotSentEmail').textContent = email;
+  setAuthMode('forgotSent');
+}
+
+// Открывает форму нового пароля после перехода по ссылке из письма (один раз).
+let resetFormOpened = false;
+function openResetPasswordForm() {
+  if (resetFormOpened) return;
+  resetFormOpened = true;
+  openAuthModal();
+  setAuthMode('reset');
+  updatePasswordStrength('', 'authResetStrength');
+  setTimeout(() => $id('authResetPassword').focus(), 60);
+}
+
+async function handleResetSubmit() {
+  clearAuthErrors();
+  const password = $id('authResetPassword').value;
+  const password2 = $id('authResetPassword2').value;
+  let valid = true;
+  if (!password || password.length < 8) {
+    setFieldError('authResetPassword', 'authResetPasswordError', t('Минимум 8 символов'));
+    valid = false;
+  }
+  if (password2 !== password || !password2) {
+    setFieldError('authResetPassword2', 'authResetPassword2Error', t('Пароли не совпадают'));
+    valid = false;
+  }
+  if (!valid) return;
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    setFieldError('authResetPassword', 'authResetPasswordError', t('Ссылка устарела. Запросите новую'));
+    return;
+  }
+  const btn = $id('authResetSubmitBtn');
+  btn.disabled = true;
+  const { error } = await sb.auth.updateUser({ password });
+  btn.disabled = false;
+  if (error) {
+    const msg = error.code === 'same_password' ? t('Новый пароль совпадает со старым')
+      : error.code === 'weak_password' ? t('Пароль слишком простой')
+      : t('Не удалось сменить пароль. Попробуйте ещё раз');
+    setFieldError('authResetPassword', 'authResetPasswordError', msg);
+    return;
+  }
+  trackGoal('password_reset_done');
+  hideModal('authModal');
+  showToast(t('Пароль изменён'));
+}
+
+// Ссылка из письма просрочена или уже использована: объясняем и сразу даём запросить новую.
+function handleAuthLinkError() {
+  if (!AUTH_LINK_ERROR) return;
+  history.replaceState(history.state, '', location.pathname + location.search);
+  openAuthModal(t('Ссылка устарела или уже использована. Запросите новую — она действует один час.'));
+  setAuthMode('forgot');
 }
 
 // Переключает достижения на текущий аккаунт. Через setTimeout — запросы к Supabase
@@ -149,10 +251,13 @@ async function initSupabaseSession() {
     await fetchProfileFromSupabase(session.user.id);
     renderMenuProfile();
   }
+  if (session && AUTH_RECOVERY_IN_URL) openResetPasswordForm();
+  handleAuthLinkError();
   refreshChatQuota().then(() => { handlePaymentParams(); resumePendingBuy(); });
 
   sb.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session) {
+    if (event === 'PASSWORD_RECOVERY') openResetPasswordForm();
+    if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && session) {
       switchAchievementsUser(session.user.id);
       await fetchProfileFromSupabase(session.user.id);
     } else if (event === 'SIGNED_OUT') {
@@ -173,6 +278,8 @@ async function initSupabaseSession() {
 // редиректа сработает initSupabaseSession()/onAuthStateChange, который
 // подтянет профиль — здесь ничего дополнительно обрабатывать не нужно.
 async function signInWithOAuthProvider(provider) {
+  // Новый это аккаунт или вход в старый, до редиректа не узнать — одна цель на оба случая.
+  trackGoal('oauth_start', { provider: provider === 'google' ? 'google' : 'vk' });
   const { error } = await sb.auth.signInWithOAuth({
     provider,
     options: { redirectTo: window.location.href.split('#')[0].split('?')[0] } // полный текущий путь, а не только домен — важно для GitHub Pages, где сайт живёт в подпапке /reponame/
@@ -194,8 +301,8 @@ function setFieldError(inputId, errorId, message) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function updatePasswordStrength(pass) {
-  const wrap = $id('authPasswordStrength');
+function updatePasswordStrength(pass, wrapId = 'authPasswordStrength') {
+  const wrap = $id(wrapId);
   if (!wrap) return;
   const bar = wrap.querySelector('span');
   let score = 0;
@@ -228,6 +335,7 @@ async function handleLoginSubmit() {
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (error) { setFieldError('authLoginPassword', 'authLoginPasswordError', t('Неверный email или пароль')); return; }
 
+  trackGoal('login', { method: 'email' });
   const acc = await fetchProfileFromSupabase(data.user.id);
   hideModal('authModal');
   renderMenuProfile();
@@ -268,6 +376,7 @@ async function handleRegisterSubmit() {
   });
   if (error) { setFieldError('authRegisterEmail', 'authRegisterEmailError', error.message); return; }
 
+  trackGoal('signup', { method: 'email' });
   // Профиль создаётся триггером на стороне БД; кэшируем то, что уже знаем.
   saveAccount({ name, avatar: '♟', elo: 1200 });
   hideModal('authModal');

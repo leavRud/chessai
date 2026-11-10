@@ -51,6 +51,7 @@ function initGame() {
 
   // Новая партия — старый кэш анализа больше не актуален
   clearAnalysisCache();
+  trackGoal('game_start', { mode: state.mode });
 
   $id('chatLog').innerHTML = '';
   $id('analysisBlock').classList.add('hidden');
@@ -455,6 +456,7 @@ function computeMateInfo() {
 }
 
 function reportAchievementGameEnd(outcome, extra = {}) {
+  trackGoal('game_end', { mode: state.mode, outcome });
   if (!window.Achievements) return;
   const game = state.game;
   const mateInfo = game && game.in_checkmate() ? computeMateInfo() : {};

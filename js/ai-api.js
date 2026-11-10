@@ -130,6 +130,7 @@ async function openBuyModal(packId = buyPack) {
   const errorEl = $id('buyError');
   errorEl.classList.add('hidden');
   showModal('buyModal');
+  trackGoal('buy_open');
   if (!buyPacks.length) {
     payBtn.disabled = true;
     payBtn.textContent = t('Оплатить');
@@ -155,6 +156,7 @@ async function startPayment() {
   errorEl.classList.add('hidden');
   const { data, error } = await sb.functions.invoke('payments/create', { body: { pack_id: buyPack } });
   if (!error && data?.confirmation_url) {
+    trackGoal('pay_click', { pack: buyPack });
     window.location.href = data.confirmation_url;
     return;
   }
@@ -188,6 +190,7 @@ function handlePaymentParams() {
   if (!buy && !paid) return;
   history.replaceState(null, '', location.pathname);
   if (paid) {
+    trackGoal('payment_return');
     showToast(t('Спасибо за оплату! Вопросы начислятся в течение минуты'));
     setTimeout(refreshChatQuota, 5000);
   }

@@ -574,6 +574,7 @@ async function requestAnalysis() {
   loading.classList.remove('hidden');
   content.innerHTML = '';
   btn.disabled = true;
+  trackGoal('analysis_request');
 
   startProgress();
 
