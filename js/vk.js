@@ -83,6 +83,33 @@ async function vkShare({ url, files }) {
   }
 }
 
+// Автоматический вход по аккаунту VK: сервер (функция vk-launch) проверяет подпись
+// параметров запуска и выдаёт одноразовый токен, по которому Supabase создаёт сессию.
+// Аккаунт тот же, что при входе через VK ID на сайте. Уже вошли — ничего не делаем.
+let vkAutoLoginStarted = false;
+async function vkAutoLogin() {
+  if (!IS_VK || vkAutoLoginStarted) return;
+  vkAutoLoginStarted = true;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) return;
+    const launch = new URLSearchParams(location.search);
+    if (!launch.get('sign')) return; // параметры запуска потерялись (перезагрузка без них)
+    let name = '';
+    try {
+      const user = await vkSend('VKWebAppGetUserInfo');
+      name = [user.first_name, user.last_name].filter(Boolean).join(' ');
+    } catch (e) { /* имя не обязательно */ }
+    const { data, error } = await sb.functions.invoke('vk-launch', { body: { params: launch.toString(), name } });
+    if (error || !data || !data.token_hash) { console.warn('Автовход VK не удался:', error || data); return; }
+    const { error: otpError } = await sb.auth.verifyOtp({ token_hash: data.token_hash, type: 'magiclink' });
+    if (otpError) { console.warn('Автовход VK: сессия не выдана', otpError.message); return; }
+    trackGoal(data.created ? 'vk_signup' : 'vk_login');
+  } catch (e) {
+    console.warn('Автовход VK не удался:', e);
+  }
+}
+
 if (IS_VK) {
   document.documentElement.classList.add('is-vk');
   trackGoal('vk_launch', { platform: new URLSearchParams(location.search).get('vk_platform') || '' });

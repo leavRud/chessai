@@ -269,6 +269,8 @@ async function initSupabaseSession() {
     renderMenuProfile();
     if (typeof getCurrentView === 'function' && getCurrentView() === 'profile') renderProfileView();
   });
+  // Внутри VK входим сами — после подписки, чтобы SIGNED_IN подтянул профиль
+  vkAutoLogin();
 }
 
 // Вход через OAuth-провайдера (Google — встроенный провайдер Supabase,
