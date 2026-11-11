@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initFeedbackModal();
   showHomeScreen();
   initSupabaseSession();
+  openSharedCharacterFromUrl();
   if (window.Achievements) window.Achievements.init();
 });
 // Регистрируем ресайз доски партии один раз на весь жизненный цикл страницы

@@ -369,6 +369,9 @@
       <div class="char-card-section-title">Стиль игры</div>
       <p id="charCardStyle" class="char-card-style"></p>
       <p id="charCardTone" class="char-card-tone"></p>
+      <div class="share-link-row">
+        <button id="charCardShareBtn" class="result-pgn-btn" type="button"><span data-icon="share"></span>Поделиться персонажем</button>
+      </div>
 
       <div class="char-card-opponent-note">
         <span class="char-card-opponent-icon" data-icon="swords"></span>
@@ -416,6 +419,7 @@
 
       <!-- Партия в формате PGN — открывается в Lichess, Chess.com и любой шахматной программе -->
       <div class="result-pgn-row">
+        <button id="resultShareBtn" class="result-pgn-btn result-share-btn" type="button"><span data-icon="share"></span>Поделиться результатом</button>
         <button id="resultPgnDownloadBtn" class="result-pgn-btn" type="button"><span data-icon="download"></span>Скачать PGN</button>
         <button id="resultPgnCopyBtn" class="result-pgn-btn" type="button"><span data-icon="copy"></span>Копировать PGN</button>
       </div>
@@ -1282,6 +1286,7 @@
 <script src="js/opponents.js"></script>
 <script src="js/chat.js"></script>
 <script src="js/analysis.js"></script>
+<script src="js/share.js"></script>
 <script src="js/effects.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/account.js"></script>

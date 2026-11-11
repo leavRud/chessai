@@ -93,6 +93,7 @@ $id('charCreateBtn').addEventListener('click', () => {
     input = { type: 'desc', value };
   }
   charState.lastInput = input;
+  charState.fromLink = false;
   hideModal('characterSetupModal');
   trackGoal('character_create', { by: input.type });
   runCharacterGeneration(input);
@@ -101,6 +102,8 @@ $id('charCreateBtn').addEventListener('click', () => {
 /* ---- Карточка персонажа ---- */
 $id('charCardBackBtn').addEventListener('click', () => {
   hideModal('characterCardModal');
+  // Персонаж пришёл по ссылке — «Назад» ведёт на главный экран, а не к созданию своего
+  if (charState.fromLink) { charState.fromLink = false; showHomeScreen(); return; }
   openCharacterSetup();
 });
 $id('charCardRegenBtn').addEventListener('click', () => {
@@ -134,6 +137,14 @@ document.querySelectorAll('#charColorRow .color-choice-btn').forEach(btn => {
 
 $id('charCardPlayBtn').addEventListener('click', () => {
   if (!state.character) return;
+  // Гость открыл персонажа по ссылке: играть можно после входа, затем карточка откроется снова
+  if (!chatSignedIn) {
+    rememberPendingSharedCharacter();
+    openAuthModal(t('Войдите, чтобы сыграть с персонажем «{name}»: им управляет нейросеть', { name: state.character.name }));
+    return;
+  }
+  if (charState.fromLink && state.character.shareId) countSharedCharacterPlay(state.character.shareId);
+  charState.fromLink = false;
   hideModal('characterCardModal');
   state.mode = 'characters';
   const color = charChosenColor === 'r' ? (Math.random() < 0.5 ? 'w' : 'b') : charChosenColor;
@@ -318,6 +329,8 @@ function charBarRow(label, value) {
 }
 
 function renderCharacterCard(profile) {
+  // Перегенерировать чужого персонажа по ссылке нечем: исходного запроса у нас нет
+  $id('charCardRegenBtn').classList.toggle('hidden', !!charState.fromLink);
   $id('charCardName').textContent = profile.name;
   $id('charCardDesc').textContent = profile.shortDescription;
   const eloLabel = eloDifficultyLabel(profile.elo);

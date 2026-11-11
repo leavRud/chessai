@@ -470,12 +470,17 @@ const CHARACTER_MOOD_ICONS = {
   angry: 'mood-angry',
   surprised: 'mood-surprised',
 };
+// Последняя реплика персонажа об итоге партии — попадает на карточку «Поделиться»
+let lastCharacterResult = null;
+
 function renderCharacterResultLoading() {
+  lastCharacterResult = null;
   $id('characterResultContent').innerHTML = `<p class="analysis-loading">${t('Персонаж обдумывает партию…')}</p>`;
 }
 
 function renderCharacterResult({ mood, favoriteMoment, comment }) {
   const c = state.character;
+  lastCharacterResult = { mood, favoriteMoment, comment };
   $id('characterResultContent').innerHTML = `
     <div class="char-result-head">
       <span class="char-result-icon">♞</span>
@@ -511,5 +516,6 @@ async function generateCharacterEndSummary(resultText, outcome) {
   } catch (error) {
     console.error('Ошибка итогового комментария персонажа:', error);
     renderCharacterResult({ mood: fallbackMood, favoriteMoment: '—', comment: t('Комментарий персонажа сейчас недоступен.') });
+    lastCharacterResult = null; // заглушка не попадает на картинку «Поделиться»
   }
 }

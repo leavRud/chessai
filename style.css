@@ -3540,6 +3540,10 @@ html.dark .btn-primary.btn-primary-active { color: #1a1408; }
 }
 .result-pgn-btn:hover { color: var(--accent); }
 .result-pgn-btn .achv-icon { width: 16px; height: 16px; }
+/* «Поделиться» — главная из ссылок под итогом: в цвет акцента */
+.result-pgn-btn.result-share-btn { color: var(--accent); }
+.result-pgn-btn.is-busy { opacity: 0.55; cursor: progress; }
+.share-link-row { display: flex; margin: 4px 0 14px; }
 
 /* ---- Мои партии ---- */
 .games-note { margin: 0 0 14px; font-size: 13px; line-height: 1.45; color: rgba(244, 239, 228, 0.6); }

@@ -253,7 +253,7 @@ async function initSupabaseSession() {
   }
   if (session && AUTH_RECOVERY_IN_URL) openResetPasswordForm();
   handleAuthLinkError();
-  refreshChatQuota().then(() => { handlePaymentParams(); resumePendingBuy(); });
+  refreshChatQuota().then(() => { handlePaymentParams(); resumePendingBuy(); resumePendingSharedCharacter(); });
 
   sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY') openResetPasswordForm();
@@ -264,7 +264,7 @@ async function initSupabaseSession() {
       switchAchievementsUser(null);
       clearAccount();
     }
-    if (event === 'SIGNED_IN') refreshChatQuota().then(resumePendingBuy);
+    if (event === 'SIGNED_IN') refreshChatQuota().then(() => { resumePendingBuy(); resumePendingSharedCharacter(); });
     if (event === 'SIGNED_OUT') refreshChatQuota();
     renderMenuProfile();
     if (typeof getCurrentView === 'function' && getCurrentView() === 'profile') renderProfileView();
