@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initStatsView();
   initAboutView();
   initFeedbackModal();
+  initPushSettings();
   showHomeScreen();
   initSupabaseSession();
   openSharedCharacterFromUrl();

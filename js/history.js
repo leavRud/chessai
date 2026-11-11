@@ -126,6 +126,7 @@ async function saveFinishedGame(rec) {
     if (!error) {
       rec.id = data.id;
       invalidateAccountGameStats();
+      onGameSavedForStreak();
       if (getCurrentView() === 'games') renderGamesView();
       return;
     }
@@ -389,6 +390,7 @@ async function openSavedGame(rec) {
   $id('resultText').textContent = rec.summary || '';
   renderResultStats(rec.reason);
   $id('characterResultBlock').classList.add('hidden');
+  hidePushAsk();
   $id('analysisBlock').classList.add('hidden');
   $id('analysisContent').innerHTML = '';
   $id('requestAnalysisBtn').textContent = t('Разобрать партию');

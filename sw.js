@@ -91,3 +91,36 @@ function stripSearch(req) {
   url.search = '';
   return url.toString();
 }
+
+/* =========================================================================
+   PUSH-УВЕДОМЛЕНИЯ (рассылает supabase/functions/push-send)
+   Данные: { title, body, url, tag }. По нажатию открываем url в уже открытой
+   вкладке chesai, если она есть, иначе — в новом окне.
+   ========================================================================= */
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { body: event.data && event.data.text() }; }
+  const title = data.title || 'chesai';
+  event.waitUntil(self.registration.showNotification(title, {
+    body: data.body || '',
+    icon: 'assests/icon-192.png',
+    badge: 'assests/icon-192.png',
+    tag: data.tag || 'chesai',
+    data: { url: data.url || './' },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || './', self.location.href);
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of windows) {
+      if (new URL(client.url).origin === target.origin && 'navigate' in client) {
+        await client.focus();
+        return client.navigate(target.href);
+      }
+    }
+    return self.clients.openWindow(target.href);
+  })());
+});

@@ -427,6 +427,19 @@
       <div id="characterResultBlock" class="character-result-block hidden">
         <div id="characterResultContent"></div>
       </div>
+
+      <!-- Вопрос про уведомления: показывает js/push.js, пока разрешение не спрашивали -->
+      <div id="pushAskBlock" class="push-ask hidden">
+        <span class="push-ask-icon" data-icon="bell"></span>
+        <div class="push-ask-body">
+          <p id="pushAskText" class="push-ask-text"></p>
+          <p class="push-ask-note">Не чаще раза в день и никогда ночью.</p>
+          <div class="push-ask-actions">
+            <button id="pushAskYes" class="btn btn-accent btn-sm" type="button">Включить</button>
+            <button id="pushAskNo" class="btn btn-ghost btn-sm" type="button">Не сейчас</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div id="analysisBlock" class="analysis-block hidden">
@@ -716,6 +729,10 @@
             <span class="settings-row-label">Проведено партий</span>
             <span id="profileStatGames">—</span>
           </div>
+          <div class="settings-row">
+            <span class="settings-row-label">Серия дней</span>
+            <span id="profileStatStreak">—</span>
+          </div>
         </div>
 
         <!-- Лимиты вопросов к нейросети: те же данные, что под чатом (get_chat_quota) -->
@@ -782,6 +799,18 @@
               <div id="installAppHint" class="settings-row-desc"></div>
             </div>
             <button id="installAppBtn" class="btn btn-accent btn-sm hidden" type="button">Установить</button>
+          </div>
+        </div>
+
+        <!-- Уведомления (js/push.js показывает, только если браузер их поддерживает) -->
+        <div id="pushSettingsGroup" class="settings-group hidden">
+          <div class="settings-group-title">Уведомления</div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Реванш и серия дней</div>
+              <div class="settings-row-desc">Персонажи зовут на реванш, напоминание о серии. Не чаще раза в день и никогда ночью</div>
+            </div>
+            <label class="toggle-switch"><input id="pushToggle" type="checkbox"><span class="toggle-slider"></span></label>
           </div>
         </div>
 
@@ -1287,6 +1316,7 @@
 <script src="js/chat.js"></script>
 <script src="js/analysis.js"></script>
 <script src="js/share.js"></script>
+<script src="js/push.js"></script>
 <script src="js/effects.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/account.js"></script>

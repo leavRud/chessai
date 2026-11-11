@@ -573,6 +573,7 @@ function showResultModal(text, outcome = 'draw', reason = 'over', winner = null)
     charBlock.classList.add('hidden');
   }
   showModal('resultModal');
+  maybeShowPushAsk();
 }
 
 $id('resignBtn').addEventListener('click', () => {

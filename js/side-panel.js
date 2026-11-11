@@ -227,6 +227,7 @@ function renderProfileView() {
     if (eloStatEl) eloStatEl.textContent = Number.isFinite(acc.elo) ? acc.elo : 1200;
     if (winsEl) winsEl.textContent = stats && Number.isFinite(stats.winsTotal) ? stats.winsTotal : '—';
     if (gamesEl) gamesEl.textContent = stats && Number.isFinite(stats.gamesPlayed) ? stats.gamesPlayed : '—';
+    renderProfileStreak();
     // Счётчики выше — из этого браузера. Партии аккаунта видны с любого устройства:
     // берём большее (история в базе ведётся с 10.11.2026, раньше считал только браузер).
     fetchAccountGameStats().then((remote) => {
