@@ -202,7 +202,7 @@ function syncAnalysisModeLock() {
 
 function resetAutoHintTimer() {
   clearTimeout(autoHintTimer);
-  if (state.mode === 'characters') return;
+  if (state.mode === 'characters' || state.mode === 'online') return;
   if (!state.settings.autoHint || !state.game || state.isGameOver) return;
   if (state.game.turn() !== state.playerColor) return;
   autoHintTimer = setTimeout(() => {

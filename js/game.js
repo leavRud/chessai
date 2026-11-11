@@ -26,6 +26,8 @@ $id('moveDetailModal').addEventListener('click', (e) => {
 });
 
 function resetToModeSelection() {
+  closePromotionPicker();
+  leaveOnlineGame();
   stopTimer();
   hideModal('resultModal');
   hideModal('moveDetailModal');
@@ -33,6 +35,7 @@ function resetToModeSelection() {
 }
 
 function initGame() {
+  closePromotionPicker();
   state.game = new Chess();
   state.isGameOver = false;
   state.isReview = false; // true — открыта старая партия из «Моих партий»
@@ -98,6 +101,11 @@ function initGame() {
     chatInputEl.placeholder = t('Скажите что-нибудь {name}…', { name: state.character.name });
     logSystemChat(t('Вы играете против персонажа «{name}» (≈{elo} Elo). Он ваш соперник за доской и не будет подсказывать вам ходы.', { name: state.character.name, elo: state.character.elo }));
     characterReact('Партия только начинается. Поприветствуйте соперника в своём образе.', true);
+  } else if (state.mode === 'online') {
+    $id('modeLabel').textContent = t('Партия с другом по ссылке · вы играете {color}', { color: playerColorName });
+    $id('chatTitle').textContent = t('Диалог с нейросетью');
+    $id('chatHint').textContent = t('Во время партии с человеком помощник молчит — спросите после партии');
+    chatInputEl.placeholder = t('Спросите после партии…');
   } else {
     $id('modeLabel').textContent = t('Игра вдвоём на одном устройстве');
     $id('chatTitle').textContent = t('Диалог с нейросетью');
@@ -147,8 +155,8 @@ function initGame() {
 let tapSelectedSquare = null;
 
 function canUserMoveNow() {
-  if (!state.game || state.isGameOver || state.isThinking) return false;
-  if ((state.mode === 'ai' || state.mode === 'characters') && state.game.turn() !== state.playerColor) return false;
+  if (!state.game || state.isGameOver || state.isThinking || pendingPromotion) return false;
+  if ((state.mode === 'ai' || state.mode === 'characters' || state.mode === 'online') && state.game.turn() !== state.playerColor) return false;
   return true;
 }
 
@@ -192,14 +200,57 @@ function onSquareTap(e) {
   if (isLegal) tryUserMove(from, square);
 }
 
-function tryUserMove(from, to) {
-  const move = state.game.move({ from, to, promotion: 'q' });
+/* ---- Превращение пешки: игрок сам выбирает фигуру ---- */
+let pendingPromotion = null; // { from, to } — ждём выбора в окне над доской
+
+function isPromotionMove(from, to) {
+  return state.game.moves({ square: from, verbose: true }).some((m) => m.to === to && m.flags.includes('p'));
+}
+
+function openPromotionPicker(from, to) {
+  pendingPromotion = { from, to };
+  const color = state.game.turn();
+  const picker = $id('promotionPicker');
+  picker.querySelectorAll('.promotion-btn').forEach((btn) => {
+    btn.querySelector('img').src = pieceThemeFn(color + btn.dataset.piece.toUpperCase());
+  });
+  picker.classList.remove('hidden');
+  picker.querySelector('.promotion-btn').focus();
+}
+
+function closePromotionPicker() {
+  pendingPromotion = null;
+  $id('promotionPicker').classList.add('hidden');
+}
+
+$id('promotionPicker').addEventListener('click', (e) => {
+  const btn = e.target.closest('.promotion-btn');
+  const pending = pendingPromotion;
+  closePromotionPicker();
+  if (!pending) return;
+  if (btn) tryUserMove(pending.from, pending.to, btn.dataset.piece);
+  else state.board.position(state.game.fen()); // нажали мимо — ход отменён
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && pendingPromotion) {
+    closePromotionPicker();
+    state.board.position(state.game.fen());
+  }
+});
+
+// promotion — фигура для превращения ('q' | 'r' | 'b' | 'n'); без неё спросим игрока.
+function tryUserMove(from, to, promotion) {
+  if (!promotion && isPromotionMove(from, to)) {
+    openPromotionPicker(from, to);
+    return true;
+  }
+  const move = state.game.move({ from, to, promotion: promotion || 'q' });
   if (move === null) {
     playSound('error');
     return false;
   }
   state.fenHistory.push(state.game.fen());
-  const isUserMove = ((state.mode === 'ai' || state.mode === 'characters') && move.color === state.playerColor) || state.mode === 'friend';
+  const isUserMove = ((state.mode === 'ai' || state.mode === 'characters' || state.mode === 'online') && move.color === state.playerColor) || state.mode === 'friend';
   onMoveMade(move, isUserMove);
   return true;
 }
@@ -248,7 +299,7 @@ function onMoveMade(move, isUserMove = false) {
   tapSelectedSquare = null;
   clearHighlights();
   if (move.captured) {
-    const isAi = (state.mode === 'ai' && move.color === state.aiColor);
+    const isAi = ((state.mode === 'ai' || state.mode === 'online') && move.color === state.aiColor);
     const flashColor = isAi ? 'red' : 'green';
     animateCapture(move.to, flashColor);
     playSound('capture');
@@ -274,6 +325,7 @@ function onMoveMade(move, isUserMove = false) {
       board: state.game.board(),
     });
   }
+  if (state.mode === 'online' && isUserMove) onlineSendMove(move);
   // После хода перезапускаем таймер
   if (!state.isGameOver) {
     stopTimer();
@@ -330,6 +382,9 @@ function renderPlayerBars() {
     const king = side === 'w' ? '♔' : '♚';
     if (state.mode === 'friend') {
       return { king, name: side === 'w' ? t('Белые') : t('Чёрные'), meta: side === 'w' ? t('Игрок 1') : t('Игрок 2') };
+    }
+    if (state.mode === 'online' && side !== state.playerColor) {
+      return { king, name: state.onlineOpponentName || t('Соперник'), meta: t('Друг по ссылке') };
     }
     if (side === state.playerColor) {
       return { king, name: acc?.name || t('Вы'), meta: acc ? t('Рейтинг {elo}', { elo: acc.elo ?? 1200 }) : t('Гость') };
@@ -424,6 +479,7 @@ function updateStatus() {
   } else {
     text = game.turn() === 'w' ? t('Ход: белые.') : t('Ход: чёрные.');
     if (state.mode === 'ai' && game.turn() === state.aiColor) text += ` ${t('Нейросеть думает…')}`;
+    else if (state.mode === 'online' && game.turn() === state.aiColor) text += ` ${t('Ход соперника…')}`;
     else if (state.mode === 'characters' && game.turn() === state.aiColor) {
       text += ` ${t('{name} думает…', { name: state.character ? state.character.name : t('Персонаж') })}`;
     }
@@ -510,8 +566,10 @@ function checkGameOver() {
     text = t('Игра окончена.');
     reason = 'over';
   }
-  const achvOutcome = state.mode === 'friend' ? 'draw' : (outcome === 'player_win' ? 'win' : (outcome === 'character_win' ? 'loss' : 'draw'));
+  // Партии с человеком не дают достижений: две вкладки — и победа «в кармане»
+  const achvOutcome = (state.mode === 'friend' || state.mode === 'online') ? 'draw' : (outcome === 'player_win' ? 'win' : (outcome === 'character_win' ? 'loss' : 'draw'));
   reportAchievementGameEnd(achvOutcome);
+  if (state.mode === 'online') onlineReportFinish(winnerColor || 'draw', reason === 'mate' || reason === 'stalemate' ? reason : 'draw');
   showResultModal(text, outcome, reason, winnerColor);
   return true;
 }
@@ -572,6 +630,8 @@ function showResultModal(text, outcome = 'draw', reason = 'over', winner = null)
   } else {
     charBlock.classList.add('hidden');
   }
+  // Реванш по ссылке — новой ссылкой с главного экрана
+  $id('rematchBtn').classList.toggle('hidden', state.mode === 'online');
   showModal('resultModal');
   maybeShowPushAsk();
 }
@@ -585,6 +645,9 @@ $id('resignBtn').addEventListener('click', () => {
     text = t('Вы сдались. Победила нейросеть.');
   } else if (state.mode === 'characters') {
     text = t('Вы сдались. Победил(а) {name}.', { name: state.character ? state.character.name : t('персонаж') });
+  } else if (state.mode === 'online') {
+    text = t('Вы сдались. Победил(а) {name}.', { name: state.onlineOpponentName || t('соперник') });
+    onlineReportFinish(null, 'resign');
   } else {
     const toMove = state.game.turn() === 'w' ? t('Белые') : t('Чёрные');
     const winner = state.game.turn() === 'w' ? t('Чёрные') : t('Белые');

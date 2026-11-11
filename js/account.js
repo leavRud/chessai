@@ -71,7 +71,7 @@ function ensureEloHistory(acc) {
 // Обновляем рейтинг аккаунта после анализа партии (плавное скользящее среднее)
 async function updateAccountEloFromGame(playerElo) {
   // «Против друга» (friend) не участвует в рейтинге: не начисляем и не пишем в историю.
-  if (state.mode === 'friend') return;
+  if (state.mode === 'friend' || state.mode === 'online') return;
 
   const acc = getAccount();
   if (!acc || !Number.isFinite(playerElo)) return;

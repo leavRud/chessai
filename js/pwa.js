@@ -27,7 +27,8 @@
     if (!el) return;
     const btn = document.getElementById('installAppBtn');
     const hint = document.getElementById('installAppHint');
-    if (isStandalone()) { el.classList.add('hidden'); return; }
+    // Уже приложение или открыто внутри VK — ставить нечего
+    if (isStandalone() || (typeof IS_VK !== 'undefined' && IS_VK)) { el.classList.add('hidden'); return; }
     if (deferredPrompt) {
       el.classList.remove('hidden');
       btn.classList.remove('hidden');

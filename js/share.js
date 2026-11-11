@@ -3,7 +3,8 @@
 // видит и гость, а сыграть можно после входа — тогда карточка откроется снова.
 'use strict';
 
-const SHARE_BASE_URL = location.origin + location.pathname.replace(/index\.html$/, '');
+// Внутри VK ссылки ведут в мини-приложение (см. js/vk.js)
+const SHARE_BASE_URL = appHomeLink();
 const SHARE_ID_RE = /^[0-9a-f]{10}$/;
 const PENDING_SHARED_CHAR_KEY = 'chessPendingSharedChar';
 
@@ -15,6 +16,7 @@ const PENDING_SHARED_CHAR_KEY = 'chessPendingSharedChar';
 // 'blocked' — браузер (чаще Safari) не дал открыть меню: от нажатия прошло слишком много
 // времени, пока мы готовили ссылку или картинку. Повторное нажатие сработает сразу.
 async function shareOrCopy({ title, text, url, files }) {
+  if (IS_VK) return vkShare({ url, files });
   const data = { title, text, url };
   if (files && navigator.canShare?.({ files })) data.files = files;
   if (navigator.share && (!files || data.files)) {
@@ -45,7 +47,7 @@ function setBusy(btn, busy) {
    ========================================================================= */
 
 function sharedCharacterUrl(id) {
-  return `${SHARE_BASE_URL}?c=${id}`;
+  return appLink('c', id);
 }
 
 // То, что храним в базе: только исходные поля, производные пересчитает normalize.
@@ -288,6 +290,11 @@ function describeResultForShare(rec) {
       : rec.result === 'loss'
         ? t('Stockfish (≈{elo} Elo) снова сильнее. Попробуй сам:', { elo: rec.opponent_elo })
         : t('Ничья со Stockfish (≈{elo} Elo). Сыграешь лучше?', { elo: rec.opponent_elo });
+  } else if (rec.mode === 'online' && rec.opponent) {
+    opponent = t('Соперник: {name}', { name: rec.opponent });
+    text = rec.result === 'win'
+      ? t('Победа в шахматы над {name} за {moves}! Сыграем?', { name: rec.opponent, moves: movesText })
+      : t('Сыграли партию в шахматы с {name} на chesai — сыграй и ты:', { name: rec.opponent });
   } else {
     opponent = t('Партия вдвоём');
     text = t('Сыграли партию в шахматы на chesai — попробуй и ты:');
@@ -438,7 +445,8 @@ $id('resultShareBtn').addEventListener('click', async () => {
     const { text } = describeResultForShare(rec);
     const files = file ? [file] : null;
     const canShareFile = files && navigator.canShare?.({ files });
-    const outcome = await shareOrCopy({ title: 'chesai', text, url, files: canShareFile ? files : null });
+    // Внутри VK картинка уходит в историю — системный canShare там не при чём
+    const outcome = await shareOrCopy({ title: 'chesai', text, url, files: (canShareFile || IS_VK) ? files : null });
     if (outcome === 'blocked') {
       showToast(t('Картинка готова — нажмите «Поделиться» ещё раз'));
     } else if (outcome === 'copied' || outcome === 'failed') {

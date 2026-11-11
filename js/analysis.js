@@ -706,6 +706,7 @@ function sideTitle(color) {
   if (state.mode === 'friend') return color === 'w' ? t('Белые') : t('Чёрные');
   if (color === state.playerColor) return t('Вы');
   if (state.mode === 'characters' && state.character) return state.character.name;
+  if (state.mode === 'online') return state.onlineOpponentName || t('Соперник');
   return 'Stockfish';
 }
 

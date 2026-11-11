@@ -80,10 +80,8 @@ $id('homePlayText').addEventListener('click', () => {
   playSound('ui');
   state.mode = homeSelectedMode;
   if (state.mode === 'friend') {
-    state.playerColor = 'w';
-    state.aiColor = 'b';
-    hideHomeScreen();
-    initGame();
+    // По ссылке или на одном устройстве — выбор в окне js/online.js
+    openFriendModal();
   } else if (state.mode === 'characters') {
     openCharacterSetup();
   } else {

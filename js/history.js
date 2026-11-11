@@ -103,13 +103,15 @@ function buildGameRecord({ reason, winner, summary }) {
     result,
     reason,
     summary: String(summary || '').slice(0, 300),
-    opponent: mode === 'characters' && state.character ? state.character.name.slice(0, 100) : (mode === 'ai' ? 'Stockfish' : null),
+    opponent: mode === 'characters' && state.character ? state.character.name.slice(0, 100)
+      : mode === 'ai' ? 'Stockfish'
+      : mode === 'online' ? (state.onlineOpponentName || t('Соперник')).slice(0, 100) : null,
     opponent_elo: mode === 'characters' && state.character ? state.character.elo : (mode === 'ai' ? skillLevelToElo(state.skillLevel) : null),
     skill_level: mode === 'ai' ? state.skillLevel : null,
     character: mode === 'characters' && state.character ? state.character : null,
     moves: Math.ceil(plies / 2),
     duration_sec: clamp(Math.round((Date.now() - (state.gameStartedAt || Date.now())) / 1000), 0, 86400),
-    player_elo: mode === 'friend' ? null : (Number.isFinite(acc?.elo) ? acc.elo : null),
+    player_elo: (mode === 'friend' || mode === 'online') ? null : (Number.isFinite(acc?.elo) ? acc.elo : null),
     player_name: acc?.name || null,
   };
   rec.pgn = buildPgn(rec, state.game.history());
@@ -345,6 +347,7 @@ async function openSavedGame(rec) {
   state.aiColor = rec.player_color === 'w' ? 'b' : 'w';
   if (Number.isFinite(rec.skill_level)) state.skillLevel = rec.skill_level;
   state.character = rec.mode === 'characters' ? (rec.character || null) : null;
+  state.onlineOpponentName = rec.mode === 'online' ? (rec.opponent || '') : '';
 
   // Проигрываем ходы заново: так собираются позиции для разбора и взятые фигуры.
   const game = new Chess();
@@ -395,7 +398,7 @@ async function openSavedGame(rec) {
   $id('analysisContent').innerHTML = '';
   $id('requestAnalysisBtn').textContent = t('Разобрать партию');
   // «Ещё раз» с персонажем возможен, только если сохранился его профиль
-  $id('rematchBtn').classList.toggle('hidden', rec.mode === 'characters' && !rec.character);
+  $id('rematchBtn').classList.toggle('hidden', (rec.mode === 'characters' && !rec.character) || rec.mode === 'online');
   showModal('resultModal');
   requestAnalysis();
 }

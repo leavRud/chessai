@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   showHomeScreen();
   initSupabaseSession();
   openSharedCharacterFromUrl();
+  openOnlineGameFromUrl();
   if (window.Achievements) window.Achievements.init();
 });
 // Регистрируем ресайз доски партии один раз на весь жизненный цикл страницы
@@ -28,6 +29,12 @@ window.addEventListener('resize', () => state.board && state.board.resize());
 /* =========================================================================
    ТАЙМЕР
    ========================================================================= */
+// Часы идут, если включены в настройках. В партии по ссылке их нет: у каждого игрока
+// свои часы в браузере, и они бы разошлись.
+function clockEnabled() {
+  return state.timeLimited && state.mode !== 'online';
+}
+
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
@@ -37,8 +44,8 @@ function formatTime(seconds) {
 function updateTimerDisplay() {
   const w = $id('timerWhite');
   const b = $id('timerBlack');
-  if (w) w.textContent = state.timeLimited ? formatTime(state.timeWhite || 0) : '—';
-  if (b) b.textContent = state.timeLimited ? formatTime(state.timeBlack || 0) : '—';
+  if (w) w.textContent = clockEnabled() ? formatTime(state.timeWhite || 0) : '—';
+  if (b) b.textContent = clockEnabled() ? formatTime(state.timeBlack || 0) : '—';
   // Активный игрок: подсвечиваем и таймер, и всю строку игрока
   const turn = state.game && !state.isGameOver ? state.game.turn() : null;
   document.querySelectorAll('.player-bar').forEach(bar => {
@@ -67,7 +74,7 @@ function stopTimer() {
 function startTimer() {
   stopTimer();
   if (!state.game || state.isGameOver) return;
-  if (!state.timeLimited) {
+  if (!clockEnabled()) {
     updateTimerDisplay();
     return;
   }
@@ -132,7 +139,7 @@ function resetTimers() {
   state.timeWhite = minutes * 60;
   state.timeBlack = minutes * 60;
   updateTimerDisplay();
-  if (state.timeLimited && state.game && !state.isGameOver) {
+  if (clockEnabled() && state.game && !state.isGameOver) {
     startTimer();
   }
 }

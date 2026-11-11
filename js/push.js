@@ -11,7 +11,8 @@ const PUSH_ASK_PAUSE = 7 * 24 * 3600 * 1000;
 const STREAK_TOAST_KEY = 'chessStreakToastDay';
 
 function pushSupported() {
-  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+  // Внутри VK браузерные push не нужны (и во фрейме ненадёжны)
+  return !IS_VK && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
     && location.protocol !== 'file:';
 }
 

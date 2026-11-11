@@ -4,6 +4,7 @@ jquery-3.5.1.min.js — https://code.jquery.com (лицензия MIT, указ�
 chessboard-1.0.0.min.js/.css — https://chessboardjs.com (лицензия MIT, указана в файле)
 chess-0.10.3.min.js — https://github.com/jhlywa/chess.js
 supabase-js-2.118.0.js — https://github.com/supabase/supabase-js
+vk-bridge-2.15.11.min.js — https://github.com/VKCOM/vk-bridge (лицензия MIT, © VK)
 
 === chess.js ===
 

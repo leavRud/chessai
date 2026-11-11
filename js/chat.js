@@ -302,6 +302,10 @@ async function handleAsk() {
   const input = $id('chatInput');
   const question = input.value.trim();
   if (!question || state.isAsking || state.characterTyping || !state.game) return;
+  if (state.mode === 'online' && !state.isGameOver) {
+    logSystemChat(t('Во время партии с человеком помощник молчит, чтобы игра была честной. Спросите после партии.'));
+    return;
+  }
   if (!chatSignedIn) {
     logSystemChat(chatErrorMessage({ code: 'AUTH_REQUIRED' }));
     openAuthModal();

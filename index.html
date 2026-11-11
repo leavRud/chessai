@@ -209,6 +209,18 @@
 
       <div class="board-frame neumorphic-inset">
         <div id="board" class="board"></div>
+        <!-- Выбор фигуры при превращении пешки (js/game.js) -->
+        <div id="promotionPicker" class="promotion-picker hidden" role="dialog" aria-label="Во что превратить пешку">
+          <div class="promotion-box">
+            <span class="promotion-title">Превратить пешку в</span>
+            <div class="promotion-row">
+              <button type="button" class="promotion-btn" data-piece="q" aria-label="Ферзь" title="Ферзь"><img alt=""></button>
+              <button type="button" class="promotion-btn" data-piece="r" aria-label="Ладья" title="Ладья"><img alt=""></button>
+              <button type="button" class="promotion-btn" data-piece="b" aria-label="Слон" title="Слон"><img alt=""></button>
+              <button type="button" class="promotion-btn" data-piece="n" aria-label="Конь" title="Конь"><img alt=""></button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div id="playerBarBottom" class="player-bar" data-side="w">
@@ -451,6 +463,65 @@
       <button id="requestAnalysisBtn" class="btn btn-accent" type="button">Разобрать партию</button>
       <button id="rematchBtn" class="btn btn-ghost" type="button">Ещё раз</button>
       <button id="closeResultBtn" class="btn btn-ghost" type="button">На главную</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ МОДАЛКА: ИГРА С ДРУГОМ (js/online.js) ============ -->
+<div id="friendModal" class="modal-overlay hidden">
+  <div class="modal neumorphic-raised wide friend-modal" role="dialog" aria-modal="true">
+    <div id="friendChoiceStep">
+      <h2>Игра с другом</h2>
+      <p class="modal-sub">Отправьте другу ссылку — он откроет её на телефоне или компьютере и сразу окажется за доской. Регистрация не нужна.</p>
+      <div class="diff-section">
+        <span class="diff-section-label">Ваш цвет</span>
+        <div class="color-choice-row" id="onlineColorRow">
+          <button type="button" class="color-choice-btn" data-color="w" aria-pressed="false">
+            <span class="color-choice-swatch color-choice-white"></span>Белые
+          </button>
+          <button type="button" class="color-choice-btn" data-color="b" aria-pressed="false">
+            <span class="color-choice-swatch color-choice-black"></span>Чёрные
+          </button>
+          <button type="button" class="color-choice-btn" data-color="r" aria-pressed="false">
+            <span class="color-choice-swatch color-choice-random"></span>Случайно
+          </button>
+        </div>
+      </div>
+      <p id="friendError" class="char-setup-error hidden" role="alert"></p>
+      <div class="modal-actions">
+        <button id="friendBackBtn" class="btn btn-ghost" type="button">Назад</button>
+        <button id="friendLocalBtn" class="btn btn-ghost" type="button">На одном устройстве</button>
+        <button id="onlineCreateBtn" class="btn btn-accent" type="button">Создать ссылку</button>
+      </div>
+    </div>
+
+    <div id="friendWaitStep" class="hidden">
+      <h2>Ссылка готова</h2>
+      <p class="modal-sub">Отправьте её другу. Партия начнётся, как только он откроет ссылку и нажмёт «Играть».</p>
+      <input id="onlineLinkInput" class="menu-text-input online-link-input" type="text" readonly aria-label="Ссылка на партию" />
+      <div class="online-wait">
+        <div class="thinking"><span></span><span></span><span></span></div>
+        <span>Ждём соперника…</span>
+      </div>
+      <div class="modal-actions">
+        <button id="onlineCancelBtn" class="btn btn-ghost" type="button">Отменить</button>
+        <button id="onlineCopyBtn" class="btn btn-ghost" type="button">Копировать</button>
+        <button id="onlineShareBtn" class="btn btn-accent" type="button">Поделиться</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ МОДАЛКА: ПРИГЛАШЕНИЕ ПО ССЫЛКЕ ============ -->
+<div id="onlineJoinModal" class="modal-overlay hidden">
+  <div class="modal neumorphic-raised online-join-modal" role="dialog" aria-modal="true" aria-labelledby="onlineJoinTitle">
+    <span class="online-join-icon">♞</span>
+    <h2 id="onlineJoinTitle">Вас зовут сыграть</h2>
+    <p id="onlineJoinText" class="modal-sub"></p>
+    <p id="onlineJoinError" class="char-setup-error hidden" role="alert"></p>
+    <div class="modal-actions">
+      <button id="onlineJoinBtn" class="btn btn-accent" type="button">Играть</button>
+      <button id="onlineJoinLaterBtn" class="btn btn-ghost" type="button">Не сейчас</button>
     </div>
   </div>
 </div>
@@ -1294,6 +1365,7 @@
 <script src="js/achievement-icons.js"></script>
 <script src="achievements.js"></script>
 <script src="vendor/supabase-js-2.118.0.js"></script>
+<script src="vendor/vk-bridge-2.15.11.min.js"></script>
 <!-- Логика приложения. Это обычные скрипты с общими глобальными именами,
      поэтому порядок важен: файл может сразу при загрузке пользоваться только
      тем, что объявлено в файлах выше. state.js — первым, main.js — последним. -->
@@ -1301,6 +1373,7 @@
 <script src="js/analytics.js"></script>
 <script src="js/state.js"></script>
 <script src="js/utils.js"></script>
+<script src="js/vk.js"></script>
 <script src="js/theme.js"></script>
 <script src="js/packs.js"></script>
 <script src="js/ai-api.js"></script>
@@ -1317,6 +1390,7 @@
 <script src="js/analysis.js"></script>
 <script src="js/share.js"></script>
 <script src="js/push.js"></script>
+<script src="js/online.js"></script>
 <script src="js/effects.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/account.js"></script>
