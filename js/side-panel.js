@@ -113,7 +113,10 @@ function renderAchievementsGrid() {
     const dateStr = unlocked ? new Date(window.Achievements.getUnlockDate(def.id)).toLocaleDateString(uiLocale) : '';
     let progressHtml = '';
     if (def.progress && !hideInfo) {
-      const p = def.progress(stats);
+      const p = { ...def.progress(stats) };
+      // Счётчики живут в браузере: на новом устройстве у полученного достижения
+      // было «0 / 1». Полученное — значит, цель достигнута.
+      if (unlocked) p.current = Math.max(p.current, p.goal);
       const pct = Math.min(100, Math.round((p.current / p.goal) * 100));
       progressHtml = `<div class="achv-progress"><div class="achv-progress-bar" style="width:${pct}%"></div></div>
         <div class="achv-progress-label">${Math.min(p.current, p.goal)} / ${p.goal}</div>`;
@@ -224,6 +227,13 @@ function renderProfileView() {
     if (eloStatEl) eloStatEl.textContent = Number.isFinite(acc.elo) ? acc.elo : 1200;
     if (winsEl) winsEl.textContent = stats && Number.isFinite(stats.winsTotal) ? stats.winsTotal : '—';
     if (gamesEl) gamesEl.textContent = stats && Number.isFinite(stats.gamesPlayed) ? stats.gamesPlayed : '—';
+    // Счётчики выше — из этого браузера. Партии аккаунта видны с любого устройства:
+    // берём большее (история в базе ведётся с 10.11.2026, раньше считал только браузер).
+    fetchAccountGameStats().then((remote) => {
+      if (!remote || getCurrentView() !== 'profile') return;
+      if (winsEl) winsEl.textContent = Math.max(stats?.winsTotal || 0, remote.wins);
+      if (gamesEl) gamesEl.textContent = Math.max(stats?.gamesPlayed || 0, remote.games);
+    });
     // Лимиты вопросов: сразу показываем последние известные, затем свежие с сервера
     renderProfileQuota();
     refreshChatQuota();
@@ -283,9 +293,19 @@ function renderStatsView() {
     // getStats() всегда возвращает объект с нулевыми значениями по умолчанию,
     // поэтому "нет данных" определяем по gamesPlayed, а не по наличию stats.
     const hasPlayed = stats && Number.isFinite(stats.gamesPlayed) && stats.gamesPlayed > 0;
-    body.innerHTML = hasPlayed
-      ? renderStatsAsList(stats)
-      : `<p class="modal-sub">${t('Пока нет статистики — сыграйте первую партию, чтобы увидеть свой прогресс.')}</p>`;
+    const emptyHtml = `<p class="modal-sub">${t('Пока нет статистики — сыграйте первую партию, чтобы увидеть свой прогресс.')}</p>`;
+    body.innerHTML = hasPlayed ? renderStatsAsList(stats) : emptyHtml;
+    // Итоги по партиям аккаунта — одинаковые на всех устройствах, поэтому сверху
+    fetchAccountGameStats().then((remote) => {
+      if (!remote || !remote.games || getCurrentView() !== 'stats') return;
+      const row = (label, value) => `<div class="settings-row"><span class="settings-row-label">${escapeHtml(label)}</span><span>${value}</span></div>`;
+      const winRate = remote.rated ? `${Math.round((remote.wins / remote.rated) * 100)}%` : '—';
+      const summary = `<div class="stats-account-block">
+        <div class="settings-group-title">${t('Партии в аккаунте')}</div>
+        ${row(t('Сыграно'), remote.games)}${row(t('Побед'), remote.wins)}${row(t('Поражений'), remote.losses)}${row(t('Ничьих'), remote.draws)}${row(t('Процент побед'), winRate)}
+      </div>`;
+      body.innerHTML = summary + (hasPlayed ? `<div class="settings-group-title">${t('На этом устройстве')}</div>${renderStatsAsList(stats)}` : '');
+    });
   }
 }
 

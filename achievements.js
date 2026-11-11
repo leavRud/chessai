@@ -535,6 +535,11 @@ const Achievements = (function () {
 
     const unsent = ACHIEVEMENTS.map(a => a.id).filter(id => isUnlocked(id) && !data.synced[id]);
     for (const id of unsent) await syncAchievementToSupabase(id);
+    // Награды выдаются не больше 30 вопросов в сутки — остаток очереди забираем при каждом входе.
+    if (!unsent.length) {
+      const { data: reward } = await sb.rpc('claim_pending_achievement_rewards');
+      if (reward?.[0]?.granted > 0 && typeof window.refreshChatQuota === 'function') window.refreshChatQuota();
+    }
     if (userId === currentUserId) runChecks('meta', {});
   }
 

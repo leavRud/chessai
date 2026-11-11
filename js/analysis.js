@@ -710,7 +710,12 @@ function sideTitle(color) {
 }
 
 function eloCell(side) {
-  if (side.elo == null) return `<span class="muted">${t('мало ходов')}</span>`;
+  // По трём-пяти дебютным ходам «уровень ~1900» — шум: оценку показываем с того же
+  // числа ходов, с которого партия влияет на рейтинг. У соперника с известной силой — его рейтинг.
+  if (side.elo == null || side.eloMoves < ELO_MIN_RATED_MOVES) {
+    if (side.knownElo != null) return `≈${side.knownElo}<small>${t('заявлено')}</small>`;
+    return `<span class="muted">${t('мало ходов')}</span>`;
+  }
   const known = side.knownElo != null ? `<small>${t('заявлено ≈{elo}', { elo: side.knownElo })}</small>` : '';
   return `~${side.elo}${known}`;
 }
@@ -742,7 +747,7 @@ function renderAnalysis(stats, totalPly, comment, { refining = false } = {}) {
   const triple = (s) => `<span class="ac-errors"><i class="is-inacc">${s.inaccuracies}</i><i class="is-mistake">${s.mistakes}</i><i class="is-blunder">${s.blunders}</i></span>`;
 
   let html = `<div class="analysis-compare">
-    <div class="ac-row ac-head"><span>${t('{n} ходов', { n: Math.ceil(totalPly / 2) })}</span><b>${escapeHtml(sideTitle(first))}</b><b>${escapeHtml(sideTitle(second))}</b></div>
+    <div class="ac-row ac-head"><span>${Math.ceil(totalPly / 2)} ${plural(Math.ceil(totalPly / 2), 'ход', 'хода', 'ходов')}</span><b>${escapeHtml(sideTitle(first))}</b><b>${escapeHtml(sideTitle(second))}</b></div>
     <div class="ac-row"><span>${t('Точность')}</span><b>${A.accuracy.toFixed(0)}%</b><b>${B.accuracy.toFixed(0)}%</b></div>
     <div class="ac-row"><span>${t('Уровень игры')}</span><b>${eloCell(A)}</b><b>${eloCell(B)}</b></div>
     <div class="ac-row"><span title="${escapeHtml(t('Средняя потеря за ход, в сотых долях пешки (CPL)'))}">${t('Средняя потеря')}</span><b>${A.avgCpl.toFixed(0)}</b><b>${B.avgCpl.toFixed(0)}</b></div>

@@ -36,6 +36,7 @@ function initGame() {
   state.game = new Chess();
   state.isGameOver = false;
   state.isReview = false; // true — открыта старая партия из «Моих партий»
+  state.resultText = '';
   $id('rematchBtn').classList.remove('hidden');
   state.isThinking = false;
   state.chatDisplay = [];
@@ -417,6 +418,9 @@ function updateStatus() {
     text = t('Пат.');
   } else if (game.in_draw()) {
     text = t('Ничья.');
+  } else if (state.isGameOver) {
+    // Сдача или время: по позиции не видно, что партия кончилась
+    text = state.resultText || t('Партия окончена.');
   } else {
     text = game.turn() === 'w' ? t('Ход: белые.') : t('Ход: чёрные.');
     if (state.mode === 'ai' && game.turn() === state.aiColor) text += ` ${t('Нейросеть думает…')}`;
@@ -553,6 +557,8 @@ function renderResultStats(reason) {
 // winner — цвет победителя ('w' | 'b') или null при ничьей: нужен для истории и PGN.
 function showResultModal(text, outcome = 'draw', reason = 'over', winner = null) {
   saveFinishedGame(buildGameRecord({ reason, winner, summary: text }));
+  state.resultText = text;
+  updateStatus(); // снимает подсветку хода и пишет итог под доской
   if (outcome === 'player_win') playSound('win');
   else if (outcome === 'character_win') playSound('lose');
   $id('resultTitle').textContent = resultTitleFor(reason, outcome);

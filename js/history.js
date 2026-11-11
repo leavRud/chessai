@@ -125,6 +125,7 @@ async function saveFinishedGame(rec) {
     const { data, error } = await sb.from('game_history').insert(row).select('id').single();
     if (!error) {
       rec.id = data.id;
+      invalidateAccountGameStats();
       if (getCurrentView() === 'games') renderGamesView();
       return;
     }
@@ -160,6 +161,30 @@ async function deleteSavedGame(rec) {
   const { error } = await sb.from('game_history').delete().eq('id', rec.id);
   return !error;
 }
+
+/* ---- Итоги по партиям аккаунта ----
+   Счётчики достижений хранятся в браузере, поэтому на новом устройстве профиль
+   показывал 0 партий. Партии в game_history общие для всех устройств. */
+let accountGameStatsCache = null;
+async function fetchAccountGameStats() {
+  const userId = await currentUserId();
+  if (!userId) return null;
+  if (accountGameStatsCache?.userId === userId && Date.now() - accountGameStatsCache.at < 30000) return accountGameStatsCache.stats;
+  const { data, error } = await sb.from('game_history').select('result, mode').limit(5000);
+  if (error || !data) return null;
+  const rated = data.filter((g) => g.mode !== 'friend');
+  const stats = {
+    games: data.length,
+    wins: rated.filter((g) => g.result === 'win').length,
+    losses: rated.filter((g) => g.result === 'loss').length,
+    draws: rated.filter((g) => g.result === 'draw').length,
+    rated: rated.length,
+  };
+  accountGameStatsCache = { userId, at: Date.now(), stats };
+  return stats;
+}
+// После новой партии кэш устаревает
+function invalidateAccountGameStats() { accountGameStatsCache = null; }
 
 /* ---- PGN: скачать и скопировать ---- */
 function pgnFileName(rec) {
@@ -215,7 +240,8 @@ function gameResultBadge(rec) {
 function gameOpponentLabel(rec) {
   if (rec.mode === 'friend') return t('Вдвоём');
   const elo = Number.isFinite(rec.opponent_elo) ? ` · ≈${rec.opponent_elo}` : '';
-  return t('против {name}', { name: rec.mode === 'ai' ? 'Stockfish' : (rec.opponent || t('персонажа')) }) + elo;
+  // Без «против»: имя персонажа произвольное, в родительный падеж его не поставить
+  return (rec.mode === 'ai' ? 'Stockfish' : (rec.opponent || t('Персонаж'))) + elo;
 }
 
 function gameItemHtml(rec, i) {
@@ -332,6 +358,7 @@ async function openSavedGame(rec) {
   state.game = game;
   state.isGameOver = true;
   state.isReview = true;
+  state.resultText = rec.summary || '';
   state.isThinking = false;
   state.chatDisplay = [];
   state.chatApiHistory = [];
