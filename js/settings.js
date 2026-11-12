@@ -85,7 +85,7 @@ const FAVICON_SIZE = 64; // запас под экраны с высокой п�
 let faviconSource = null;
 
 function applyFaviconAccent(name) {
-  const link = document.querySelector('link[rel="icon"]');
+  const link = document.querySelector('link[rel="icon"][type="image/png"]');
   if (!link) return;
   link.dataset.src ||= link.getAttribute('href');
   const accent = FAVICON_ACCENT_RGB[name];
@@ -147,24 +147,7 @@ function applyHomeBackground(name, restart) {
   document.querySelectorAll('#homeBackgroundRow .board-style-btn').forEach(el => {
     el.classList.toggle('is-active', el.dataset.homeBg === name);
   });
-  // Пешки бывают только в рое коней
-  const enemiesRow = $id('homeEnemiesRow');
-  if (enemiesRow) enemiesRow.classList.toggle('hidden', name !== 'knights');
   if (restart && !$id('homeScreen').classList.contains('hidden')) initHomeFigures();
-}
-
-function applyHomeEnemies(on) {
-  state.settings.homeEnemies = on;
-  localStorage.setItem('chess_homeEnemies', on ? '1' : '0');
-  if (on) {
-    if (figureState && homePageVisible) startEnemySpawner();
-  } else {
-    stopEnemySpawner();
-    if (figureState) {
-      figureState.enemies.forEach(enemy => enemy.el.remove());
-      figureState.enemies = [];
-    }
-  }
 }
 
 function applyPerfMode() {
@@ -384,16 +367,6 @@ function initSettingsPanel() {
   document.querySelectorAll('#homeBackgroundRow .board-style-btn').forEach(el => {
     el.addEventListener('click', () => { applyHomeBackground(el.dataset.homeBg, true); playSound('ui'); });
   });
-
-  // Вражеские пешки на главном экране
-  const homeEnemiesToggle = $id('homeEnemiesToggle');
-  if (homeEnemiesToggle) {
-    homeEnemiesToggle.checked = state.settings.homeEnemies;
-    homeEnemiesToggle.addEventListener('change', () => {
-      applyHomeEnemies(homeEnemiesToggle.checked);
-      playSound('ui');
-    });
-  }
 
   // О программе
   $id('aboutLicensesLink').addEventListener('click', (e) => {

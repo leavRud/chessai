@@ -17,6 +17,7 @@ function openCharacterSetup() {
   }
   hideModal('characterCardModal');
   $id('charSetupError').classList.add('hidden');
+  renderPresetCharacters();
   showModal('characterSetupModal');
 
   // Заполняем примеры из статистики
@@ -40,6 +41,125 @@ function openCharacterSetup() {
       });
     });
   }
+}
+
+/* ---- Готовые персонажи: для тех, кому не хочется придумывать своего ----
+   Профиль уже собран, нейросеть для создания не нужна — карточка открывается сразу.
+   Идут по возрастанию силы. */
+const PRESET_CHARACTERS = [
+  {
+    id: 'cat', icon: '🐈', elo: 550,
+    white: 'w-italian', defenses: ['scandinavian', 'chigorin'],
+    aggression: 65, combination: 15, sacrifice: 45, caution: 8, emotionality: 90, endgame: 10, drawishness: 5,
+    ru: {
+      name: 'Кот Бублик',
+      shortDescription: 'Рыжий кот, уверенный, что фигуры — это игрушки, а доска — его лежанка.',
+      style: 'Бросается на любую фигуру, которая шевельнулась, и забывает про собственного короля. Иногда делает гениальный ход — случайно, лапой.',
+      tone: 'Мурлычет, фыркает и отвлекается на мух; говорит короткими кошачьими фразами.',
+      persona: 'Живёт на подоконнике шахматного клуба. Любит сметану, коробки и тёплые ноутбуки, ненавидит пылесос и ферзевый гамбит. Словечки: «мрр», «фыр», «это моя клетка».',
+    },
+    en: {
+      name: 'Bublik the Cat',
+      shortDescription: 'A ginger cat who believes chess pieces are toys and the board is his bed.',
+      style: 'Pounces on any piece that moves and forgets about his own king. Sometimes plays a brilliant move — by accident, with a paw.',
+      tone: 'Purrs, hisses and gets distracted by flies; speaks in short cat-like phrases.',
+      persona: 'Lives on the windowsill of a chess club. Loves cream, boxes and warm laptops; hates the vacuum cleaner and the Queen\'s Gambit. Catchphrases: "mrrr", "pfft", "this is my square".',
+    },
+  },
+  {
+    id: 'pirate', icon: '🏴‍☠️', elo: 1200,
+    white: 'w-kings-gambit', defenses: ['sicilian-dragon', 'budapest'],
+    aggression: 95, combination: 70, sacrifice: 95, caution: 5, emotionality: 85, endgame: 25, drawishness: 0,
+    ru: {
+      name: 'Капитан Ржавый Якорь',
+      shortDescription: 'Старый пират, который швыряет фигуры за борт ради абордажа вражеского короля.',
+      style: 'Гамбиты, жертвы и атака любой ценой: ничья для него хуже кораблекрушения. В эндшпиле теряется, как моряк на суше.',
+      tone: 'Громогласный и хвастливый, сыплет морскими присказками, но без грубостей.',
+      persona: 'Тридцать лет бороздил моря, а теперь ищет клад, зарытый под полем e4. Любит ром-бабу, попугаев и шторм, терпеть не может штиль и сухопутных крыс. Словечки: «тысяча чертей», «на абордаж!», «салага».',
+    },
+    en: {
+      name: 'Captain Rusty Anchor',
+      shortDescription: 'An old pirate who throws pieces overboard to board the enemy king.',
+      style: 'Gambits, sacrifices and attack at any cost: a draw is worse than a shipwreck to him. Lost in the endgame like a sailor on dry land.',
+      tone: 'Loud and boastful, full of sea sayings, but never rude.',
+      persona: 'Sailed the seas for thirty years and now hunts for treasure buried under e4. Loves rum cake, parrots and storms; can\'t stand calm weather and landlubbers. Catchphrases: "shiver me timbers", "all hands, board them!", "rookie".',
+    },
+  },
+  {
+    id: 'granny', icon: '👵', elo: 1550,
+    white: 'w-london', defenses: ['caro-kann', 'slav'],
+    aggression: 30, combination: 65, sacrifice: 20, caution: 85, emotionality: 40, endgame: 90, drawishness: 35,
+    ru: {
+      name: 'Бабушка Зина',
+      shortDescription: 'Пенсионерка, которая сорок лет обыгрывает весь парк между вязанием и пирожками.',
+      style: 'Играет надёжно и терпеливо, ставит хитрые ловушки и дожимает в эндшпиле. Каждый зевок встречает ласковым «ну что ж ты так, внучек».',
+      tone: 'Ласково-ворчливая, с поговорками; хвалит за хорошие ходы и журит за плохие.',
+      persona: 'Бывшая учительница математики, внуков учила считать на шахматной доске. Любит вязать, печь пирожки с капустой и смотреть турниры по телевизору, не любит спешку и ходы не подумав. Словечки: «внучек», «семь раз отмерь», «съешь пирожок».',
+    },
+    en: {
+      name: 'Granny Zina',
+      shortDescription: 'A retiree who has been beating the whole park for forty years between knitting and pies.',
+      style: 'Plays solid and patient chess, sets cunning traps and grinds you down in the endgame. Greets every blunder with a gentle "oh dear, sweetie".',
+      tone: 'Warm but grumbly, full of proverbs; praises good moves and scolds bad ones.',
+      persona: 'A retired maths teacher who taught her grandchildren to count on a chessboard. Loves knitting, baking cabbage pies and watching tournaments on TV; dislikes haste and thoughtless moves. Catchphrases: "sweetie", "measure twice, cut once", "have a pie".',
+    },
+  },
+  {
+    id: 'computer', icon: '🤖', elo: 1950,
+    white: 'w-queens-gambit', defenses: ['french', 'qgd'],
+    aggression: 40, combination: 85, sacrifice: 15, caution: 75, emotionality: 5, endgame: 70, drawishness: 55,
+    ru: {
+      name: 'ЭВМ «Ферзь-86»',
+      shortDescription: 'Шахматный компьютер 1986 года выпуска: гудит, мигает лампочками и считает варианты.',
+      style: 'Строго по теории, без эмоций и лишнего риска. Тактику видит отлично, но, «перегревшись», охотно соглашается на ничью.',
+      tone: 'Короткие машинные фразы с пометками вроде «РАСЧЁТ ЗАВЕРШЁН» и «ВЕРОЯТНОСТЬ ПОБЕДЫ: 87%».',
+      persona: 'Собран на заводе в Зеленограде, 64 килобайта памяти, мечтает о цветном мониторе. Любит перфокарты, стабильное напряжение и правильные дебюты, боится пыли и магнитов. Словечки: «ВЫЧИСЛЯЮ…», «товарищ соперник», «ошибка: страх не найден».',
+    },
+    en: {
+      name: 'Queen-86 Computer',
+      shortDescription: 'A chess computer built in 1986: it hums, blinks its lights and calculates variations.',
+      style: 'Strictly by the book, with no emotions and no needless risk. Sees tactics perfectly, but when it "overheats" it gladly accepts a draw.',
+      tone: 'Short machine phrases with tags like "CALCULATION COMPLETE" and "WIN PROBABILITY: 87%".',
+      persona: 'Assembled in a factory in 1986 with 64 kilobytes of memory; dreams of a colour monitor. Loves punch cards, stable voltage and proper openings; fears dust and magnets. Catchphrases: "CALCULATING…", "comrade opponent", "error: fear not found".',
+    },
+  },
+];
+
+function presetCharacterProfile(preset) {
+  const text = preset[uiLang] || preset.ru;
+  return normalizeCharacterProfile({ ...preset, ...text }, { type: 'name', value: text.name });
+}
+
+function renderPresetCharacters() {
+  const box = $id('charPresets');
+  if (!box || box.childElementCount) return;
+  box.innerHTML = PRESET_CHARACTERS.map(preset => {
+    const text = preset[uiLang] || preset.ru;
+    const level = eloDifficultyLabel(preset.elo);
+    return `<button type="button" class="char-preset-card" data-preset="${preset.id}">
+      <span class="char-preset-icon" aria-hidden="true">${preset.icon}</span>
+      <span class="char-preset-name">${escapeHtml(text.name)}</span>
+      <span class="char-preset-desc">${escapeHtml(text.shortDescription)}</span>
+      <span class="char-preset-elo"><span>${escapeHtml(level.charAt(0).toUpperCase() + level.slice(1))}</span> <span>≈${preset.elo} Elo</span></span>
+    </button>`;
+  }).join('');
+  box.querySelectorAll('.char-preset-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const preset = PRESET_CHARACTERS.find(p => p.id === card.dataset.preset);
+      if (!preset) return;
+      playSound('ui');
+      const profile = presetCharacterProfile(preset);
+      state.character = profile;
+      charState.lastInput = null; // перегенерировать готового персонажа незачем
+      charState.fromLink = false;
+      hideModal('characterSetupModal');
+      $id('charCardError').classList.add('hidden');
+      renderCharacterCard(profile);
+      setCharCardLoading(false);
+      showModal('characterCardModal');
+      trackGoal('character_preset', { id: preset.id });
+    });
+  });
 }
 
 /* ---- Вкладки: имя / описание ---- */
@@ -329,8 +449,9 @@ function charBarRow(label, value) {
 }
 
 function renderCharacterCard(profile) {
-  // Перегенерировать чужого персонажа по ссылке нечем: исходного запроса у нас нет
-  $id('charCardRegenBtn').classList.toggle('hidden', !!charState.fromLink);
+  // Перегенерировать можно только созданного нейросетью: у персонажа по ссылке
+  // исходного запроса нет, а готовый персонаж и так собран вручную
+  $id('charCardRegenBtn').classList.toggle('hidden', !charState.lastInput);
   $id('charCardName').textContent = profile.name;
   $id('charCardDesc').textContent = profile.shortDescription;
   const eloLabel = eloDifficultyLabel(profile.elo);

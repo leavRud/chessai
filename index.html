@@ -8,6 +8,7 @@
 <!-- Поиск и превью ссылок в соцсетях/мессенджерах -->
 <meta name="description" content="Шахматы онлайн против Stockfish, вдвоём или против персонажей-нейросетей. ИИ-помощник объясняет ходы и позиции. Бесплатно, без установки." />
 <link rel="canonical" href="https://chesai.ru/" />
+<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48" />
 <link rel="icon" href="assests/icon-32.png" sizes="32x32" type="image/png" />
 <link rel="apple-touch-icon" href="assests/icon-180.png" />
 <link rel="manifest" href="manifest.webmanifest" />
@@ -164,7 +165,7 @@
 
   <footer class="home-footer">
     <nav class="home-footer-links" aria-label="Информация">
-      <a href="#faq" id="homeFaqLink">Вопросы</a>
+      <a href="#faq" id="homeFaqLink">FAQ</a>
       <a href="tarify.html">Тарифы</a>
       <a href="oferta.html">Оферта</a>
       <a href="privacy.html">Конфиденциальность</a>
@@ -333,7 +334,12 @@
 <div id="characterSetupModal" class="modal-overlay hidden">
   <div class="modal neumorphic-raised wide character-modal">
     <h2>Против персонажа</h2>
-    <p class="modal-sub">Выберите готовое имя или опишите своего персонажа — нейросеть создаст его игровой профиль и стиль игры.</p>
+    <p class="modal-sub">Сыграйте с готовым персонажем или придумайте своего — нейросеть создаст его игровой профиль и стиль игры.</p>
+
+    <div class="char-section-title">Готовые персонажи</div>
+    <div id="charPresets" class="char-presets"></div>
+
+    <div class="char-section-title">Или создайте своего</div>
 
     <div class="char-tabs" role="tablist">
       <button type="button" class="char-tab is-active" data-tab="name" role="tab" aria-selected="true">Имя персонажа</button>
@@ -432,6 +438,7 @@
       <!-- Партия в формате PGN — открывается в Lichess, Chess.com и любой шахматной программе -->
       <div class="result-pgn-row">
         <button id="resultShareBtn" class="result-pgn-btn result-share-btn" type="button"><span data-icon="share"></span>Поделиться результатом</button>
+        <button id="resultGifBtn" class="result-pgn-btn" type="button"><span data-icon="movie"></span>Гифка партии</button>
         <button id="resultPgnDownloadBtn" class="result-pgn-btn" type="button"><span data-icon="download"></span>Скачать PGN</button>
         <button id="resultPgnCopyBtn" class="result-pgn-btn" type="button"><span data-icon="copy"></span>Копировать PGN</button>
       </div>
@@ -919,7 +926,7 @@
             <span class="settings-row-label">Оформление доски</span>
             <div id="boardStyleRow" class="board-style-row">
               <button type="button" class="board-style-btn" data-board-style="classic">Классическое</button>
-              <button type="button" class="board-style-btn" data-board-style="mono">Минималистичное</button>
+              <button type="button" class="board-style-btn" data-board-style="mono">Простое</button>
               <button type="button" class="board-style-btn" data-board-style="contrast">Контрастное</button>
             </div>
           </div>
@@ -930,14 +937,6 @@
               <button type="button" class="board-style-btn" data-home-bg="knights">Рой коней</button>
               <button type="button" class="board-style-btn" data-home-bg="snow">Фигурный снегопад</button>
             </div>
-          </div>
-
-          <div id="homeEnemiesRow" class="settings-row">
-            <div>
-              <div class="settings-row-label">Вражеские пешки на главном экране</div>
-              <div class="settings-row-desc">Падающие пешки, которых ловят кони вокруг кнопки «Играть»</div>
-            </div>
-            <label class="toggle-switch"><input id="homeEnemiesToggle" type="checkbox" checked><span class="toggle-slider"></span></label>
           </div>
         </div>
 

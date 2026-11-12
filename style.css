@@ -670,6 +670,72 @@ html:not(.dark) img.piece-417db { filter: drop-shadow(0 1px 1.5px rgba(40, 25, 1
 
 .char-tab-panel { margin-bottom: 8px; }
 
+/* Готовые персонажи — 2×2 карточки над вкладками */
+.char-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 4px 0 10px;
+}
+.char-presets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.char-preset-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: 'icon name' 'desc desc' 'elo elo';
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 6px;
+  padding: 12px 13px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  box-shadow: var(--sd-sm);
+  color: var(--text);
+  text-align: left;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.char-preset-card:hover { box-shadow: var(--inset-sm); }
+.char-preset-card:active { transform: scale(0.98); }
+.char-preset-icon {
+  grid-area: icon;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--bg-alt);
+  box-shadow: var(--inset-sm);
+  font-size: 20px;
+  line-height: 1;
+}
+.char-preset-name { grid-area: name; font-weight: 700; font-size: 14px; line-height: 1.25; overflow-wrap: anywhere; }
+.char-preset-desc {
+  grid-area: desc;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.char-preset-elo { grid-area: elo; display: flex; flex-wrap: wrap; column-gap: 6px; font-size: 12px; font-weight: 700; color: var(--accent-dark); }
+.char-preset-elo > span { white-space: nowrap; }
+.char-preset-elo > span + span { color: var(--text-muted); font-weight: 600; }
+@media (max-width: 480px) {
+  .char-presets { gap: 8px; margin-bottom: 16px; }
+  .char-preset-card { padding: 10px; column-gap: 8px; row-gap: 5px; }
+  .char-preset-icon { width: 32px; height: 32px; font-size: 17px; }
+  .char-preset-name { font-size: 13.5px; }
+  .char-preset-desc { -webkit-line-clamp: 2; font-size: 12px; }
+}
+
 .char-text-input, .char-textarea {
   width: 100%;
   border: none;
@@ -756,6 +822,14 @@ html:not(.dark) img.piece-417db { filter: drop-shadow(0 1px 1.5px rgba(40, 25, 1
   white-space: pre-line;
   text-align: right;
   line-height: 1.35;
+}
+
+/* На телефоне длинное имя наезжало на плашку силы — переносим её под имя */
+@media (max-width: 480px) {
+  .char-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 14px; }
+  .char-card-icon { width: 48px; height: 48px; font-size: 26px; }
+  .char-card-headtext h2 { font-size: 22px; overflow-wrap: anywhere; }
+  .char-card-elo { grid-column: 1 / -1; justify-self: start; white-space: normal; text-align: left; }
 }
 
 .char-card-section-title {

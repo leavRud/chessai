@@ -61,7 +61,7 @@ function onHomeVisibilityChange() {
   if (!figureState) return;
 
   if (homePageVisible) {
-    if (state.settings.homeEnemies) startEnemySpawner();
+    startEnemySpawner();
   } else {
     stopEnemySpawner();
   }

@@ -56,7 +56,7 @@ function initHomeFigures() {
   };
 
   positionFigures();
-  if (state.settings.homeEnemies) startEnemySpawner();
+  startEnemySpawner();
 
   if (homeAnimationInterval) clearInterval(homeAnimationInterval);
   homeAnimationInterval = setInterval(() => {
@@ -157,7 +157,6 @@ function restartEnemyTimers() {
 }
 
 function spawnHomeEnemy() {
-  if (!state.settings.homeEnemies) return;
   if (!figureState || figureState.enemies.length >= HOME_ENEMY_MAX) return;
   const layer = document.getElementById('homeKnights');
   if (!layer) return;
